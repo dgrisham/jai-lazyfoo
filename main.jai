@@ -9,6 +9,7 @@ gWindow           : *SDL_Window;
 gTexture          : *SDL_Texture;
 gRenderer         : *SDL_Renderer;
 
+
 main :: () {
 
     if !init() {
@@ -17,6 +18,27 @@ main :: () {
         if !loadMedia() {
             print("Failed to load media!\n");
         } else {
+
+            topLeftViewport :: SDL_Rect.{
+                x = 0,
+                y = 0,
+                w = SCREEN_WIDTH / 2,
+                h = SCREEN_HEIGHT / 2,
+            };
+
+            topRightViewport :: SDL_Rect.{
+                x = SCREEN_WIDTH / 2,
+                y = 0,
+                w = SCREEN_WIDTH / 2,
+                h = SCREEN_HEIGHT / 2,
+            };
+
+            bottomViewport :: SDL_Rect.{
+                x = 0,
+                y = SCREEN_HEIGHT / 2,
+                w = SCREEN_WIDTH,
+                h = SCREEN_HEIGHT / 2,
+            };
 
             quit := false;
             e : SDL_Event;
@@ -30,39 +52,15 @@ main :: () {
                 SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
                 SDL_RenderClear(gRenderer);
 
-                // inner rectangle
-                fillRect := SDL_Rect.{
-                    x = SCREEN_WIDTH  / 4,
-                    y = SCREEN_HEIGHT / 4,
-                    w = SCREEN_WIDTH  / 2,
-                    h = SCREEN_HEIGHT / 2,
-                };
-                SDL_SetRenderDrawColor(gRenderer, 0xFF, 0x00, 0x00, 0xFF);
-                SDL_RenderFillRect(gRenderer, *fillRect);
+                SDL_RenderSetViewport(gRenderer, *topLeftViewport);
+                SDL_RenderCopy(gRenderer, gTexture, null, null);
 
-                // outer rectangle
-                outlineRect := SDL_Rect.{
-                    x = SCREEN_WIDTH  / 6,
-                    y = SCREEN_HEIGHT / 6,
-                    w = SCREEN_WIDTH  * 2 / 3,
-                    h = SCREEN_HEIGHT * 2 / 3,
-                };
-                SDL_SetRenderDrawColor(gRenderer, 0x00, 0xFF, 0x00, 0xFF);
-                SDL_RenderDrawRect(gRenderer, *outlineRect);
+                SDL_RenderSetViewport(gRenderer, *topRightViewport);
+                SDL_RenderCopy(gRenderer, gTexture, null, null);
 
-                // horizontal line
-                SDL_SetRenderDrawColor(gRenderer, 0x00, 0x00, 0xFF, 0xFF);
-                SDL_RenderDrawLine(gRenderer, 0, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT / 2);
+                SDL_RenderSetViewport(gRenderer, *bottomViewport);
+                SDL_RenderCopy(gRenderer, gTexture, null, null);
 
-                // vertical dotted line
-                SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0x00, 0xFF);
-                y := (SCREEN_HEIGHT / 4);
-                while y < (SCREEN_HEIGHT * 3 / 4) {
-                    SDL_RenderDrawPoint(gRenderer, SCREEN_WIDTH / 2, y);
-                    y += 4;
-                }
-
-                // update screen
                 SDL_RenderPresent(gRenderer);
             }
         }
@@ -91,8 +89,6 @@ init :: () -> bool {
                 success = false;
             } else {
 
-                SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF,0xFF);
-
                 if !(IMG_Init(IMG_INIT_PNG) & cast(u32)IMG_INIT_PNG) {
                     print("Failed to initialize SDL_image: %s\n", IMG_GetError());
                     success = false;
@@ -106,6 +102,12 @@ init :: () -> bool {
 
 loadMedia :: () -> bool {
     success := true;
+
+    path :: "img/viewport.png";
+    gTexture = loadTexture(path);
+    if !gTexture {
+        print("Failed to load texture %: %\n", path, gTexture);
+    }
     return success;
 }
 
