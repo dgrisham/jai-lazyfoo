@@ -2,8 +2,8 @@
 #import "SDL";
 #import "SDL_image";
 
-SCREEN_WIDTH  :: 640;
-SCREEN_HEIGHT :: 480;
+SCREEN_WIDTH  :: cast(s32)640;
+SCREEN_HEIGHT :: cast(s32)480;
 
 gWindow           : *SDL_Window;
 gTexture          : *SDL_Texture;
@@ -27,11 +27,40 @@ main :: () {
                     }
                 }
 
-                // clear screen
+                SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
                 SDL_RenderClear(gRenderer);
 
-                // render texture to screen
-                SDL_RenderCopy(gRenderer, gTexture, null, null);
+                // inner rectangle
+                fillRect := SDL_Rect.{
+                    x = SCREEN_WIDTH  / 4,
+                    y = SCREEN_HEIGHT / 4,
+                    w = SCREEN_WIDTH  / 2,
+                    h = SCREEN_HEIGHT / 2,
+                };
+                SDL_SetRenderDrawColor(gRenderer, 0xFF, 0x00, 0x00, 0xFF);
+                SDL_RenderFillRect(gRenderer, *fillRect);
+
+                // outer rectangle
+                outlineRect := SDL_Rect.{
+                    x = SCREEN_WIDTH  / 6,
+                    y = SCREEN_HEIGHT / 6,
+                    w = SCREEN_WIDTH  * 2 / 3,
+                    h = SCREEN_HEIGHT * 2 / 3,
+                };
+                SDL_SetRenderDrawColor(gRenderer, 0x00, 0xFF, 0x00, 0xFF);
+                SDL_RenderDrawRect(gRenderer, *outlineRect);
+
+                // horizontal line
+                SDL_SetRenderDrawColor(gRenderer, 0x00, 0x00, 0xFF, 0xFF);
+                SDL_RenderDrawLine(gRenderer, 0, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT / 2);
+
+                // vertical dotted line
+                SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0x00, 0xFF);
+                y := (SCREEN_HEIGHT / 4);
+                while y < (SCREEN_HEIGHT * 3 / 4) {
+                    SDL_RenderDrawPoint(gRenderer, SCREEN_WIDTH / 2, y);
+                    y += 4;
+                }
 
                 // update screen
                 SDL_RenderPresent(gRenderer);
@@ -77,13 +106,6 @@ init :: () -> bool {
 
 loadMedia :: () -> bool {
     success := true;
-
-    gTexture = loadTexture("img/texture.png");
-    if !gTexture {
-        print("Failed to load texture image!\n");
-        success = false;
-    }
-
     return success;
 }
 
