@@ -2,33 +2,18 @@
 #import "SDL";
 #import "SDL_image";
 
-SCREEN_WIDTH  :: cast(s32)640;
-SCREEN_HEIGHT :: cast(s32)480;
+SCREEN_WIDTH  : s32 : 640;
+SCREEN_HEIGHT : s32 : 480;
 
 gWindow:   *SDL_Window;
 gRenderer: *SDL_Renderer;
 
-gFooTexture:        LTexture;
-gBackgroundTexture: LTexture;
-
-gSpriteClips: [4]SDL_Rect;
-gSpriteSheetTexture: LTexture;
+gModulatedTexture: LTexture;
 
 LTexture :: struct {
     mTexture: *SDL_Texture;
     mWidth:   s32;
     mHeight:  s32;
-}
-
-renderSprite :: (lt: *LTexture, x: s32, y: s32, clip: *SDL_Rect = null) {
-
-    renderQuad : SDL_Rect;
-    renderQuad.x = x;
-    renderQuad.y = y;
-    renderQuad.w = ifx clip then clip.w else lt.mWidth;
-    renderQuad.h = ifx clip then clip.h else lt.mHeight;
-
-    SDL_RenderCopy(gRenderer, lt.mTexture, clip, *renderQuad);
 }
 
 main :: () {
@@ -41,20 +26,41 @@ main :: () {
         } else {
             quit := false;
             e : SDL_Event;
+
+            red   : u8 = 255;
+            green : u8 = 255;
+            blue  : u8 = 255;
+
             while !quit {
                 while SDL_PollEvent(*e) {
                     if e.type == SDL_QUIT {
                         quit = true;
+                    } else if e.type == SDL_KEYDOWN {
+                        if e.key.keysym.sym == {
+
+                            case SDLK_q;
+                                red += 32;
+                            case SDLK_a;
+                                red -= 32;
+
+                            case SDLK_w;
+                                green += 32;
+                            case SDLK_s;
+                                green -= 32;
+
+                            case SDLK_e;
+                                blue += 32;
+                            case SDLK_d;
+                                blue -= 32;
+                        }
                     }
                 }
 
                 SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
                 SDL_RenderClear(gRenderer);
 
-                renderSprite(*gSpriteSheetTexture, 0, 0, *gSpriteClips[0]);
-                renderSprite(*gSpriteSheetTexture, SCREEN_WIDTH - gSpriteClips[1].w, 0, *gSpriteClips[1]);
-                renderSprite(*gSpriteSheetTexture, 0, SCREEN_HEIGHT - gSpriteClips[2].h, *gSpriteClips[2]);
-                renderSprite(*gSpriteSheetTexture, SCREEN_WIDTH - gSpriteClips[3].w, SCREEN_HEIGHT - gSpriteClips[3].h, *gSpriteClips[3]);
+                SDL_SetTextureColorMod(gModulatedTexture.mTexture, red, blue, green);
+                renderTexture(*gModulatedTexture, 0, 0);
 
                 SDL_RenderPresent(gRenderer);
             }
@@ -99,36 +105,11 @@ loadMedia :: () -> bool {
 
     success := true;
 
-    dotsPath :: "img/dots.png";
-    gSpriteSheetTexture = loadFromFile(dotsPath);
-    if !gSpriteSheetTexture.mTexture {
-        print("Failed to load background texture image\n");
+    path :: "img/colors.png";
+    gModulatedTexture = loadFromFile(path);
+    if !gModulatedTexture.mTexture {
+        print("Failed to load colored rectangle texture image\n");
         success = false;
-    } else {
-        gSpriteClips[0] = .{
-            x = 0,
-            y = 0,
-            w = 100,
-            h = 100,
-        };
-        gSpriteClips[1] = .{
-            x = 100,
-            y = 0,
-            w = 100,
-            h = 100,
-        };
-        gSpriteClips[2] = .{
-            x = 0,
-            y = 100,
-            w = 100,
-            h = 100,
-        };
-        gSpriteClips[3] = .{
-            x = 100,
-            y = 100,
-            w = 100,
-            h = 100,
-        };
     }
 
     return success;
@@ -163,17 +144,23 @@ loadFromFile :: (path: *u8) -> LTexture {
     return lt;
 }
 
+renderTexture :: (lt: *LTexture, x: s32, y: s32, clip: *SDL_Rect = null) {
+
+    renderQuad : SDL_Rect;
+    renderQuad.x = x;
+    renderQuad.y = y;
+    renderQuad.w = ifx clip then clip.w else lt.mWidth;
+    renderQuad.h = ifx clip then clip.h else lt.mHeight;
+
+    SDL_RenderCopy(gRenderer, lt.mTexture, clip, *renderQuad);
+}
+
 close :: () {
 
-    SDL_DestroyTexture(gFooTexture.mTexture);
-    gFooTexture.mTexture = null;
-    gFooTexture.mWidth = 0;
-    gFooTexture.mHeight = 0;
-
-    SDL_DestroyTexture(gBackgroundTexture.mTexture);
-    gBackgroundTexture.mTexture = null;
-    gBackgroundTexture.mWidth = 0;
-    gBackgroundTexture.mHeight = 0;
+    SDL_DestroyTexture(gModulatedTexture.mTexture);
+    gModulatedTexture.mTexture = null;
+    gModulatedTexture.mWidth = 0;
+    gModulatedTexture.mHeight = 0;
 
     SDL_DestroyRenderer(gRenderer);
     SDL_DestroyWindow(gWindow);
