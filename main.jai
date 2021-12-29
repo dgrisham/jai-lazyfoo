@@ -8,7 +8,8 @@ SCREEN_HEIGHT : s32 : 480;
 gWindow:   *SDL_Window;
 gRenderer: *SDL_Renderer;
 
-gModulatedTexture: LTexture;
+gModulatedTexture  : LTexture;
+gBackgroundTexture : LTexture;
 
 LTexture :: struct {
     mTexture: *SDL_Texture;
@@ -27,9 +28,7 @@ main :: () {
             quit := false;
             e : SDL_Event;
 
-            red   : u8 = 255;
-            green : u8 = 255;
-            blue  : u8 = 255;
+            alpha: u8 = 255;
 
             while !quit {
                 while SDL_PollEvent(*e) {
@@ -38,20 +37,10 @@ main :: () {
                     } else if e.type == SDL_KEYDOWN {
                         if e.key.keysym.sym == {
 
-                            case SDLK_q;
-                                red += 32;
-                            case SDLK_a;
-                                red -= 32;
-
                             case SDLK_w;
-                                green += 32;
+                                alpha = ifx alpha >= #run (255 - 32) then 255 else alpha + 32;
                             case SDLK_s;
-                                green -= 32;
-
-                            case SDLK_e;
-                                blue += 32;
-                            case SDLK_d;
-                                blue -= 32;
+                                alpha = ifx alpha <= 32 then 0 else alpha - 32;
                         }
                     }
                 }
@@ -59,7 +48,9 @@ main :: () {
                 SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
                 SDL_RenderClear(gRenderer);
 
-                SDL_SetTextureColorMod(gModulatedTexture.mTexture, red, blue, green);
+                renderTexture(*gBackgroundTexture, 0, 0);
+
+                SDL_SetTextureAlphaMod(gModulatedTexture.mTexture, alpha);
                 renderTexture(*gModulatedTexture, 0, 0);
 
                 SDL_RenderPresent(gRenderer);
@@ -105,10 +96,20 @@ loadMedia :: () -> bool {
 
     success := true;
 
-    path :: "img/colors.png";
-    gModulatedTexture = loadFromFile(path);
+    fadeOutPath :: "img/fadeout.png";
+    fadeInPath :: "img/fadein.png";
+
+    gModulatedTexture = loadFromFile(fadeOutPath);
     if !gModulatedTexture.mTexture {
-        print("Failed to load colored rectangle texture image\n");
+        print("Failed to load fadeout texture image\n");
+        success = false;
+    } else {
+        SDL_SetTextureBlendMode(gModulatedTexture.mTexture, .SDL_BLENDMODE_BLEND);
+    }
+
+    gBackgroundTexture = loadFromFile(fadeInPath);
+    if !gBackgroundTexture.mTexture {
+        print("Failed to load fadein texture image\n");
         success = false;
     }
 
