@@ -1,173 +1,89 @@
 #import "Basic";
-#import "SDL";
-#import "SDL_image";
+#import "Math";
+#import "Window_Creation";
 
-SCREEN_WIDTH  : s32 : 640;
-SCREEN_HEIGHT : s32 : 480;
+Simp  :: #import "Simp";
+Input :: #import "Input";
 
-gWindow:   *SDL_Window;
-gRenderer: *SDL_Renderer;
+KEY_Q :: 81;
+KEY_S :: 83;
+KEY_W :: 87;
 
-gModulatedTexture  : LTexture;
-gBackgroundTexture : LTexture;
+window_width  : s32 : 640;
+window_height : s32 : 480;
 
-LTexture :: struct {
-    mTexture: *SDL_Texture;
-    mWidth:   s32;
-    mHeight:  s32;
-}
+window : Window_Type;
+
+fade_in_texture  : Simp.Texture;
+fade_out_texture : Simp.Texture;
+
+fade_out_path :: "img/fadeout.png";
+fade_in_path  :: "img/fadein.png";
 
 main :: () {
 
-    if !init() {
-        print("Initialization failed!\n");
-    } else {
-        if !loadMedia() {
-            print("Failed to load media!\n");
-        } else {
-            quit := false;
-            e : SDL_Event;
+    window = create_window(window_width, window_height, "LazyFOO");
+    Simp.set_render_target(window);
 
-            alpha: u8 = 255;
+    success := Simp.texture_load_from_file(*fade_in_texture, fade_in_path);
+    assert(success);
 
-            while !quit {
-                while SDL_PollEvent(*e) {
-                    if e.type == SDL_QUIT {
-                        quit = true;
-                    } else if e.type == SDL_KEYDOWN {
-                        if e.key.keysym.sym == {
+    success = Simp.texture_load_from_file(*fade_out_texture, fade_out_path);
+    assert(success);
 
-                            case SDLK_w;
-                                alpha = ifx alpha >= #run (255 - 32) then 255 else alpha + 32;
-                            case SDLK_s;
-                                alpha = ifx alpha <= 32 then 0 else alpha - 32;
-                        }
-                    }
-                }
+    alpha: u8 = 255;
 
-                SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
-                SDL_RenderClear(gRenderer);
+    quit := false;
+    while !quit {
+        Input.update_window_events();
 
-                renderTexture(*gBackgroundTexture, 0, 0);
-
-                SDL_SetTextureAlphaMod(gModulatedTexture.mTexture, alpha);
-                renderTexture(*gModulatedTexture, 0, 0);
-
-                SDL_RenderPresent(gRenderer);
-            }
-        }
-    }
-
-    close();
-}
-
-init :: () -> bool {
-
-    success := true;
-
-    if SDL_Init(SDL_INIT_VIDEO) < 0 {
-        print("SDL failed to initialize: %\n", SDL_GetError());
-        success = false;
-    } else {
-        gWindow = SDL_CreateWindow("SDL TutTut", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
-        if !gWindow {
-            print("Failed to create gWindow: %\n", SDL_GetError());
-            success = false;
-        } else {
-
-            gRenderer = SDL_CreateRenderer(gWindow, -1, .ACCELERATED);
-            if !gRenderer {
-                print("Failed to create renderer: %\n", SDL_GetError());
-                success = false;
-            } else {
-
-                if !(IMG_Init(IMG_INIT_PNG) & cast(u32)IMG_INIT_PNG) {
-                    print("Failed to initialize SDL_image: %s\n", IMG_GetError());
-                    success = false;
+        for Input.events_this_frame {
+            if it.type == {
+              case .QUIT;
+                quit = true;
+              case .KEYBOARD;
+                if !it.key_pressed continue;
+                if it.key_code == {
+                  case KEY_Q;
+                    quit = true;
+                 case KEY_W;
+                    alpha = ifx alpha >= #run (255 - 32) then 255 else alpha + 32;
+                 case KEY_S;
+                    alpha = ifx alpha <= 32 then 0 else alpha - 32;
                 }
             }
         }
+
+        draw_one_frame(alpha / 255.0);
     }
 
-    return success;
+    sleep_milliseconds(10);
+    reset_temporary_storage();
 }
 
-loadMedia :: () -> bool {
+draw_one_frame :: (alpha: float) {
 
-    success := true;
+    Simp.set_shader_for_images(*fade_in_texture);
+    Simp.immediate_begin();
 
-    fadeOutPath :: "img/fadeout.png";
-    fadeInPath :: "img/fadein.png";
+    Simp.immediate_quad(
+        xy(0, 0),
+        xy(cast(float)window_width, 0),
+        xy(cast(float)window_width, cast(float)window_height),
+        xy(0, cast(float)window_height),
+    );
 
-    gModulatedTexture = loadFromFile(fadeOutPath);
-    if !gModulatedTexture.mTexture {
-        print("Failed to load fadeout texture image\n");
-        success = false;
-    } else {
-        SDL_SetTextureBlendMode(gModulatedTexture.mTexture, .SDL_BLENDMODE_BLEND);
-    }
+    Simp.set_shader_for_images(*fade_out_texture);
 
-    gBackgroundTexture = loadFromFile(fadeInPath);
-    if !gBackgroundTexture.mTexture {
-        print("Failed to load fadein texture image\n");
-        success = false;
-    }
+    Simp.immediate_quad(
+        xy(0, 0),
+        xy(cast(float)window_width, 0),
+        xy(cast(float)window_width, cast(float)window_height),
+        xy(0, cast(float)window_height),
+        rgba(1, 1, 1, alpha),
+    );
 
-    return success;
-}
+    Simp.immediate_flush();
 
-loadFromFile :: (path: *u8) -> LTexture {
-
-    lt: LTexture;
-
-    newTexture: *SDL_Texture = null;
-
-    loadedSurface := IMG_Load(path);
-    if !loadedSurface {
-        print("Unable to load image %: %\n", path, SDL_GetError());
-    } else {
-
-        SDL_SetColorKey(loadedSurface, SDL_TRUE, SDL_MapRGB(loadedSurface.format, 0x00, 0xFF, 0xFF));
-
-        newTexture = SDL_CreateTextureFromSurface(gRenderer, loadedSurface);
-        if !newTexture {
-            print("Failed to create texture from %: %\n", path, SDL_GetError());
-        } else {
-            lt.mWidth  = loadedSurface.w;
-            lt.mHeight = loadedSurface.h;
-        }
-
-        SDL_FreeSurface(loadedSurface);
-    }
-
-    lt.mTexture = newTexture;
-
-    return lt;
-}
-
-renderTexture :: (lt: *LTexture, x: s32, y: s32, clip: *SDL_Rect = null) {
-
-    renderQuad : SDL_Rect;
-    renderQuad.x = x;
-    renderQuad.y = y;
-    renderQuad.w = ifx clip then clip.w else lt.mWidth;
-    renderQuad.h = ifx clip then clip.h else lt.mHeight;
-
-    SDL_RenderCopy(gRenderer, lt.mTexture, clip, *renderQuad);
-}
-
-close :: () {
-
-    SDL_DestroyTexture(gModulatedTexture.mTexture);
-    gModulatedTexture.mTexture = null;
-    gModulatedTexture.mWidth = 0;
-    gModulatedTexture.mHeight = 0;
-
-    SDL_DestroyRenderer(gRenderer);
-    SDL_DestroyWindow(gWindow);
-    gWindow = null;
-    gRenderer = null;
-
-    IMG_Quit();
-    SDL_Quit();
+    Simp.swap_buffers(window);
 }
