@@ -31,7 +31,7 @@ main :: () {
     success = Simp.texture_load_from_file(*fade_out_texture, fade_out_path);
     assert(success);
 
-    alpha: u8 = 255;
+    alpha: float = 1.0;
 
     quit := false;
     while !quit {
@@ -46,19 +46,18 @@ main :: () {
                 if it.key_code == {
                   case KEY_Q;
                     quit = true;
-                 case KEY_W;
-                    alpha = ifx alpha >= #run (255 - 32) then 255 else alpha + 32;
                  case KEY_S;
-                    alpha = ifx alpha <= 32 then 0 else alpha - 32;
+                    alpha = ifx alpha <= 0.1 then 0 else alpha - 0.1;
+                 case KEY_W;
+                    alpha = ifx alpha >= 0.9 then 1 else alpha + 0.1;
                 }
             }
         }
 
-        draw_one_frame(alpha / 255.0);
+        draw_one_frame(alpha);
+        sleep_milliseconds(10);
+        reset_temporary_storage();
     }
-
-    sleep_milliseconds(10);
-    reset_temporary_storage();
 }
 
 draw_one_frame :: (alpha: float) {
