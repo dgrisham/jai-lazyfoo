@@ -63,16 +63,16 @@ draw_one_frame :: (sprite_idx: int) {
     Simp.set_shader_for_images(*sprite_sheet_texture);
     Simp.immediate_begin();
 
-    sprite_start_width  := #run cast(float)window_width  / 2 - sprite_width  / 2;
-    sprite_start_height := #run cast(float)window_height / 2 - sprite_height / 2;
-    sprite_end_width    := #run cast(float)window_width  / 2 + sprite_width  / 2;
-    sprite_end_height   := #run cast(float)window_height / 2 + sprite_height / 2;
+    sprite_start_width  :: cast(float)window_width  / 2 - sprite_width  / 2;
+    sprite_start_height :: cast(float)window_height / 2 - sprite_height / 2;
+    sprite_end_width    :: cast(float)window_width  / 2 + sprite_width  / 2;
+    sprite_end_height   :: cast(float)window_height / 2 + sprite_height / 2;
 
     Simp.immediate_quad(
-        xy(sprite_start_width, sprite_start_height),
-        xy(sprite_end_width,   sprite_start_height),
-        xy(sprite_end_width,   sprite_end_height),
-        xy(sprite_start_width, sprite_end_height),
+        #run Vector2.{sprite_start_width, sprite_start_height},
+        #run Vector2.{sprite_end_width,   sprite_start_height},
+        #run Vector2.{sprite_end_width,   sprite_end_height},
+        #run Vector2.{sprite_start_width, sprite_end_height},
         rgba(1,1,1,1),
         xy(sprite_idx       / 4.0, 0),
         xy((sprite_idx + 1) / 4.0, 0),
