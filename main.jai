@@ -5,33 +5,32 @@
 Simp  :: #import "Simp";
 Input :: #import "Input";
 
+KEY_D :: 68;
+KEY_H :: 72;
+KEY_I :: 73;
 KEY_Q :: 81;
-KEY_S :: 83;
-KEY_W :: 87;
+KEY_V :: 86;
 
 window_width  : s32 : 1920;
 window_height : s32 : 1080;
 
-sprite_sheet_path :: "img/sprite_sheet.png";
-sprite_width  :: 64;
-sprite_height :: 205;
-
-height_ratio :: (cast(float) sprite_height) / (cast(float) window_height);
+arrow_path :: "img/arrow.png";
 
 window : Window_Type;
-sprite_sheet_texture : Simp.Texture;
+arrow_texture : Simp.Texture;
 
 main :: () {
 
     window = create_window(window_width, window_height, "LazyFOO");
     Simp.set_render_target(window);
 
-    success := Simp.texture_load_from_file(*sprite_sheet_texture, sprite_sheet_path);
+    success := Simp.texture_load_from_file(*arrow_texture, arrow_path);
     assert(success);
 
     reset_temporary_storage();
 
-    sprite_idx := 0;
+    degrees: float = 0;
+    flip_horizontal, flip_vertical := false;
     quit := false;
     while !quit {
         Input.update_window_events();
@@ -45,39 +44,54 @@ main :: () {
                 if it.key_code == {
                   case KEY_Q;
                     quit = true;
+                  case KEY_H;
+                    flip_horizontal = !flip_horizontal;
+                  case KEY_V;
+                    flip_vertical = !flip_vertical;
+                  case KEY_I;
+                    degrees += 45;
+                  case KEY_D;
+                    degrees -= 45;
                 }
             }
         }
 
-        draw_one_frame(sprite_idx);
-
-        sprite_idx += 1;
-        if sprite_idx == 4 sprite_idx = 0;
-
-        sleep_milliseconds(100);
+        draw_one_frame(degrees * PI / 180, flip_horizontal, flip_vertical);
+        sleep_milliseconds(10);
     }
 }
 
-draw_one_frame :: (sprite_idx: int) {
+// alpha:           angle to rotate the image CCW in radians
+// flip_horizontal: whether to flip the image about the x-axis
+// flip_vertical:   whether to flip the image about the y-axis
+draw_one_frame :: (alpha: float, flip_horizontal := false, flip_vertical := false) {
 
-    Simp.set_shader_for_images(*sprite_sheet_texture);
+    Simp.clear_render_target(0, 0, 0, 1);
+
+    Simp.set_shader_for_images(*arrow_texture);
     Simp.immediate_begin();
 
-    sprite_start_width  :: #run cast(float)window_width  / 2 - sprite_width  / 2;
-    sprite_start_height :: #run cast(float)window_height / 2 - sprite_height / 2;
-    sprite_end_width    :: #run cast(float)window_width  / 2 + sprite_width  / 2;
-    sprite_end_height   :: #run cast(float)window_height / 2 + sprite_height / 2;
+    width := arrow_texture.width / 2;
+    height := arrow_texture.height / 2;
+
+    p: Vector2;
+    p.x = cast(float)(window_width  / 2);
+    p.y = cast(float)(window_height / 2);
+
+    ca := cos(alpha);
+    sa := sin(alpha);
+
+    flip_h : float = ifx flip_horizontal then -1.0 else 1.0;
+    flip_v : float = ifx flip_vertical   then -1.0 else 1.0;
+
+    w := xy(flip_v * width * ca,   flip_h * height * sa);
+    h := xy(flip_v * width * sa, - flip_h * height * ca);
 
     Simp.immediate_quad(
-        #run Vector2.{sprite_start_width, sprite_start_height},
-        #run Vector2.{sprite_end_width,   sprite_start_height},
-        #run Vector2.{sprite_end_width,   sprite_end_height},
-        #run Vector2.{sprite_start_width, sprite_end_height},
-        rgba(1,1,1,1),
-        xy(sprite_idx       / 4.0, 0),
-        xy((sprite_idx + 1) / 4.0, 0),
-        xy((sprite_idx + 1) / 4.0, 1),
-        xy(sprite_idx       / 4.0, 1),
+        p - w - h,
+        p + w - h,
+        p + w + h,
+        p - w + h,
     );
 
     Simp.immediate_flush();
