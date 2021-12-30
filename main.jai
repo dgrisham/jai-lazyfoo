@@ -9,30 +9,29 @@ KEY_Q :: 81;
 KEY_S :: 83;
 KEY_W :: 87;
 
-window_width  : s32 : 640;
-window_height : s32 : 480;
+window_width  : s32 : 1920;
+window_height : s32 : 1080;
+
+sprite_sheet_path :: "img/sprite_sheet.png";
+sprite_width  :: 64;
+sprite_height :: 205;
+
+height_ratio :: (cast(float) sprite_height) / (cast(float) window_height);
 
 window : Window_Type;
-
-fade_in_texture  : Simp.Texture;
-fade_out_texture : Simp.Texture;
-
-fade_out_path :: "img/fadeout.png";
-fade_in_path  :: "img/fadein.png";
+sprite_sheet_texture : Simp.Texture;
 
 main :: () {
 
     window = create_window(window_width, window_height, "LazyFOO");
     Simp.set_render_target(window);
 
-    success := Simp.texture_load_from_file(*fade_in_texture, fade_in_path);
+    success := Simp.texture_load_from_file(*sprite_sheet_texture, sprite_sheet_path);
     assert(success);
 
-    success = Simp.texture_load_from_file(*fade_out_texture, fade_out_path);
-    assert(success);
+    reset_temporary_storage();
 
-    alpha: float = 1.0;
-
+    sprite_idx := 0;
     quit := false;
     while !quit {
         Input.update_window_events();
@@ -46,43 +45,41 @@ main :: () {
                 if it.key_code == {
                   case KEY_Q;
                     quit = true;
-                 case KEY_S;
-                    alpha = ifx alpha <= 0.1 then 0 else alpha - 0.1;
-                 case KEY_W;
-                    alpha = ifx alpha >= 0.9 then 1 else alpha + 0.1;
                 }
             }
         }
 
-        draw_one_frame(alpha);
-        sleep_milliseconds(10);
-        reset_temporary_storage();
+        draw_one_frame(sprite_idx);
+
+        sprite_idx += 1;
+        if sprite_idx == 4 sprite_idx = 0;
+
+        sleep_milliseconds(100);
     }
 }
 
-draw_one_frame :: (alpha: float) {
+draw_one_frame :: (sprite_idx: int) {
 
-    Simp.set_shader_for_images(*fade_in_texture);
+    Simp.set_shader_for_images(*sprite_sheet_texture);
     Simp.immediate_begin();
 
-    Simp.immediate_quad(
-        xy(0, 0),
-        xy(cast(float)window_width, 0),
-        xy(cast(float)window_width, cast(float)window_height),
-        xy(0, cast(float)window_height),
-    );
-
-    Simp.set_shader_for_images(*fade_out_texture);
+    sprite_start_width  := #run cast(float)window_width  / 2 - sprite_width  / 2;
+    sprite_start_height := #run cast(float)window_height / 2 - sprite_height / 2;
+    sprite_end_width    := #run cast(float)window_width  / 2 + sprite_width  / 2;
+    sprite_end_height   := #run cast(float)window_height / 2 + sprite_height / 2;
 
     Simp.immediate_quad(
-        xy(0, 0),
-        xy(cast(float)window_width, 0),
-        xy(cast(float)window_width, cast(float)window_height),
-        xy(0, cast(float)window_height),
-        rgba(1, 1, 1, alpha),
+        xy(sprite_start_width, sprite_start_height),
+        xy(sprite_end_width,   sprite_start_height),
+        xy(sprite_end_width,   sprite_end_height),
+        xy(sprite_start_width, sprite_end_height),
+        rgba(1,1,1,1),
+        xy(sprite_idx       / 4.0, 0),
+        xy((sprite_idx + 1) / 4.0, 0),
+        xy((sprite_idx + 1) / 4.0, 1),
+        xy(sprite_idx       / 4.0, 1),
     );
 
     Simp.immediate_flush();
-
     Simp.swap_buffers(window);
 }
