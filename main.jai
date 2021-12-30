@@ -109,7 +109,6 @@ main :: () {
 
         draw_one_frame();
         frame += 1;
-        sleep_milliseconds(10);
     }
 }
 
