@@ -5,110 +5,69 @@
 Simp  :: #import "Simp";
 Input :: #import "Input";
 
-buttons_file :: "img/button.png";
-
 KEY_Q :: 81;
 
 window_width  : s32 : 2560;
 window_height : s32 : 1280;
 
-button_width  : float : 300;
-button_height : float : 200;
-
 window : Window_Type;
 
-buttons_texture: Simp.Texture;
-
-L_Button_Sprite :: enum u8 {
-    BUTTON_SPRITE_MOUSE_OUT;
-    BUTTON_SPRITE_MOUSE_OVER_MOTION;
-    BUTTON_SPRITE_MOUSE_DOWN;
-    BUTTON_SPRITE_MOUSE_UP;
+textures: struct {
+    press: Simp.Texture;
+    up: Simp.Texture;
+    down: Simp.Texture;
+    left: Simp.Texture;
+    right: Simp.Texture;
 }
 
-NUM_BUTTONS :: #run type_info(L_Button_Sprite).names.count;
-buttons: [NUM_BUTTONS] L_Button = .[
-    .{ top_left = .{window_width / 2.0 - button_width, window_height / 2.0 - button_height} },
-    .{ top_left = .{window_width / 2.0               , window_height / 2.0 - button_height} },
-    .{ top_left = .{window_width / 2.0 - button_width, window_height / 2.0                } },
-    .{ top_left = .{window_width / 2.0               , window_height / 2.0                } },
-];
-
-L_Button :: struct {
-    top_left: Vector2;
-    currentSprite: L_Button_Sprite = .BUTTON_SPRITE_MOUSE_OUT;
-    mouse_inside := false;
-}
+current_texture: *Simp.Texture;
 
 main :: () {
 
     window = create_window(window_width, window_height, "LazyFOO");
     Simp.set_render_target(window);
 
-    success := Simp.texture_load_from_file(*buttons_texture, buttons_file);
-    assert(success);
-
+    assert(Simp.texture_load_from_file(*textures.press, "img/press.png")
+        && Simp.texture_load_from_file(*textures.up,    "img/up.png")
+        && Simp.texture_load_from_file(*textures.down,  "img/down.png")
+        && Simp.texture_load_from_file(*textures.left,  "img/left.png")
+        && Simp.texture_load_from_file(*textures.right, "img/right.png")
+    );
     reset_temporary_storage();
 
-    mouse_x, mouse_y: int;
-    mouse_x, mouse_y, success = get_mouse_pointer_position(window, true);
-    assert(success);
-    mouse_moved := false;
+    current_texture = *textures.press;
 
     quit := false;
-    frame := 0;
     while !quit {
         Input.update_window_events();
 
-        // we don't get a mouse motion event from OpenGL, so we check it ourselves
-        x, y := get_mouse_pointer_position(window, true);
-        mouse_moved = mouse_x != x || mouse_y != y;
-        mouse_x, mouse_y = x, y;
+        for Input.events_this_frame {
+            if it.type == {
+              case .QUIT;
+                quit = true;
+                break;
 
-        for *button: buttons {
-            inside := true;
-
-            x_float := cast(float) mouse_x;
-            y_float := cast(float) mouse_y;
-            if x_float < button.top_left.x {
-                inside = false;
-            } else if x_float > button.top_left.x + button_width {
-                inside = false;
-            } else if y_float < button.top_left.y {
-                inside = false;
-            } else if y_float > button.top_left.y + button_height {
-                inside = false;
-            }
-            button.mouse_inside = inside;
-
-            if !button.mouse_inside button.currentSprite = .BUTTON_SPRITE_MOUSE_OUT;
-
-            for Input.events_this_frame {
-                if it.type == {
-
-                  case .QUIT;
+              case .KEYBOARD;
+                if it.key_pressed && it.key_code == KEY_Q {
                     quit = true;
-                    break button;
+                    break;
+                }
 
-                  case .KEYBOARD;
-                    if it.key_pressed && it.key_code == KEY_Q {
-                        quit = true;
-                        break button;
-                    }
-
-                    if it.key_code == .MOUSE_BUTTON_LEFT && button.mouse_inside {
-                        if it.key_pressed  button.currentSprite = .BUTTON_SPRITE_MOUSE_DOWN;
-                        else               button.currentSprite = .BUTTON_SPRITE_MOUSE_UP;
-                    }
+                if Input.input_button_states[cast(int) Input.Key_Code.ARROW_UP] & Input.Key_Current_State.DOWN {
+                    current_texture = *textures.up;
+                } else if Input.input_button_states[cast(int) Input.Key_Code.ARROW_DOWN] & Input.Key_Current_State.DOWN {
+                    current_texture = *textures.down;
+                } else if Input.input_button_states[cast(int) Input.Key_Code.ARROW_LEFT] & Input.Key_Current_State.DOWN {
+                    current_texture = *textures.left;
+                } else if Input.input_button_states[cast(int) Input.Key_Code.ARROW_RIGHT] & Input.Key_Current_State.DOWN {
+                    current_texture = *textures.right;
+                } else {
+                    current_texture = *textures.press;
                 }
             }
-
-            if mouse_moved && button.mouse_inside
-                button.currentSprite = .BUTTON_SPRITE_MOUSE_OVER_MOTION;
         }
 
         draw_one_frame();
-        frame += 1;
     }
 }
 
@@ -116,35 +75,24 @@ draw_one_frame :: () {
 
     Simp.clear_render_target(0, 0, 0, 1);
 
-    for *button: buttons {
-        if button.mouse_inside && button.currentSprite == .BUTTON_SPRITE_MOUSE_OUT {
-            button.currentSprite = .BUTTON_SPRITE_MOUSE_OVER_MOTION;
-        }
-        render_button(<<button);
-    }
-
-    Simp.swap_buffers(window);
-}
-
-render_button :: (using button: L_Button) {
-
-    num_buttons :: #run cast(float) NUM_BUTTONS;
-
-    Simp.set_shader_for_images(*buttons_texture);
+    Simp.set_shader_for_images(current_texture);
     Simp.immediate_begin();
 
-    sprite_idx := cast(int) button.currentSprite;
+    top_left := xy(
+        window_width / 2.0 - current_texture.width / 2.0,
+        window_height / 2.0 - current_texture.height / 2.0,
+    );
+    texture_width := cast(float) current_texture.width;
+    texture_height := cast(float) current_texture.height;
     Simp.immediate_quad(
         top_left,
-        top_left + xy(button_width, 0),
-        top_left + xy(button_width, button_height),
-        top_left + xy(0,            button_height),
+        top_left + xy(texture_width, 0),
+        top_left + xy(texture_width, texture_height),
+        top_left + xy(0, texture_height),
         rgba(1, 1, 1, 1),
-        xy(0, (NUM_BUTTONS - sprite_idx - 1) / num_buttons),
-        xy(1, (NUM_BUTTONS - sprite_idx - 1) / num_buttons),
-        xy(1, (NUM_BUTTONS - sprite_idx)     / num_buttons),
-        xy(0, (NUM_BUTTONS - sprite_idx)     / num_buttons),
     );
 
     Simp.immediate_flush();
+
+    Simp.swap_buffers(window);
 }
