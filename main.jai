@@ -44,10 +44,12 @@ main :: () {
                 if it.key_code == {
                   case KEY_Q;
                     quit = true;
+
                   case KEY_H;
                     flip_horizontal = !flip_horizontal;
                   case KEY_V;
                     flip_vertical = !flip_vertical;
+
                   case KEY_I;
                     degrees += 45;
                   case KEY_D;
@@ -58,20 +60,21 @@ main :: () {
 
         draw_one_frame(degrees * PI / 180, flip_horizontal, flip_vertical);
         sleep_milliseconds(10);
+        // assert(context.temporary_storage.occupied == 0);
     }
 }
 
 // alpha:           angle to rotate the image CCW in radians
 // flip_horizontal: whether to flip the image about the x-axis
 // flip_vertical:   whether to flip the image about the y-axis
-draw_one_frame :: (alpha: float, flip_horizontal := false, flip_vertical := false) {
+draw_one_frame :: (alpha: float, mirror_x_axis := false, mirror_y_axis := false) {
 
     Simp.clear_render_target(0, 0, 0, 1);
 
     Simp.set_shader_for_images(*arrow_texture);
     Simp.immediate_begin();
 
-    width := arrow_texture.width / 2;
+    width  := arrow_texture.width  / 2;
     height := arrow_texture.height / 2;
 
     p: Vector2;
@@ -81,11 +84,11 @@ draw_one_frame :: (alpha: float, flip_horizontal := false, flip_vertical := fals
     ca := cos(alpha);
     sa := sin(alpha);
 
-    flip_h : float = ifx flip_horizontal then -1.0 else 1.0;
-    flip_v : float = ifx flip_vertical   then -1.0 else 1.0;
+    mirror_x: float = ifx mirror_x_axis then -1.0 else 1.0;
+    mirror_y: float = ifx mirror_y_axis then -1.0 else 1.0;
 
-    w := xy(flip_v * width * ca,   flip_h * height * sa);
-    h := xy(flip_v * width * sa, - flip_h * height * ca);
+    w := xy(mirror_y * width * ca,   mirror_x * height * sa);
+    h := xy(mirror_y * width * sa, - mirror_x * height * ca);
 
     Simp.immediate_quad(
         p - w - h,
