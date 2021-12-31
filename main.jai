@@ -1,14 +1,15 @@
 #import "Basic";
 #import "Math";
 #import "Window_Creation";
+#import "Time";
 
 Simp  :: #import "Simp";
 Input :: #import "Input";
 
 KEY_Q :: 81;
 
-window_width  : s32 : 2560;
-window_height : s32 : 1280;
+window_width  : s32 : 1920;
+window_height : s32 : 1080;
 
 window : Window_Type;
 
@@ -22,10 +23,16 @@ textures: struct {
 
 current_texture: *Simp.Texture;
 
+frame := 0;
+frame_rate: float64;
+frames_to_wait :: 30;
+
 main :: () {
 
     window = create_window(window_width, window_height, "LazyFOO");
     Simp.set_render_target(window);
+
+    init_font();
 
     assert(Simp.texture_load_from_file(*textures.press, "img/press.png")
         && Simp.texture_load_from_file(*textures.up,    "img/up.png")
@@ -37,8 +44,10 @@ main :: () {
 
     current_texture = *textures.press;
 
+    framerate_measurement_start := get_current_file_time();
     quit := false;
     while !quit {
+
         Input.update_window_events();
 
         for Input.events_this_frame {
@@ -68,12 +77,21 @@ main :: () {
         }
 
         draw_one_frame();
+        frame += 1;
+        if frame % frames_to_wait == 0 {
+            framerate_measurement_stop := get_current_file_time();
+            frame_rate = frames_to_wait / ((framerate_measurement_stop - framerate_measurement_start) / 10000000.0);
+            framerate_measurement_start = framerate_measurement_stop;
+        }
     }
 }
 
 draw_one_frame :: () {
 
     Simp.clear_render_target(0, 0, 0, 1);
+
+    time_str := tprint("% fps (frame %)", frame_rate, frame);
+    Simp.draw_text(font, 30, window_height - 90, time_str);
 
     Simp.set_shader_for_images(current_texture);
     Simp.immediate_begin();
@@ -95,4 +113,12 @@ draw_one_frame :: () {
     Simp.immediate_flush();
 
     Simp.swap_buffers(window);
+}
+
+font: *Simp.Dynamic_Font;
+
+init_font :: () {
+    pixel_height := window_height / 48;
+    font = Simp.get_font_at_size(".", "OpenSans-BoldItalic.ttf", pixel_height);
+    assert(font != null);
 }
