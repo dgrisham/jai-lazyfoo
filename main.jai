@@ -25,7 +25,8 @@ current_texture: *Simp.Texture;
 
 frame := 0;
 frame_rate: float64;
-frames_to_wait :: 30;
+target_fps :: 30.0;
+max_ms_per_frame :: 1000.0 / target_fps;
 
 main :: () {
 
@@ -44,9 +45,9 @@ main :: () {
 
     current_texture = *textures.press;
 
-    framerate_measurement_start := get_current_file_time();
     quit := false;
     while !quit {
+        frame_start := get_current_file_time();
 
         Input.update_window_events();
 
@@ -78,11 +79,18 @@ main :: () {
 
         draw_one_frame();
         frame += 1;
-        if frame % frames_to_wait == 0 {
-            framerate_measurement_stop := get_current_file_time();
-            frame_rate = frames_to_wait * 10000000.0 / (framerate_measurement_stop - framerate_measurement_start);
-            framerate_measurement_start = framerate_measurement_stop;
+
+        frame_end := get_current_file_time();
+        frame_rate = 10000000.0 / (frame_end - frame_start);
+
+        frame_time_ms := (frame_end - frame_start) / 10000.0;
+        if frame_time_ms < max_ms_per_frame {
+            print("frame_time_ms: %\n", frame_time_ms);
+            print("sleeping for % ms\n", cast(s32) (max_ms_per_frame - frame_time_ms));
+            sleep_milliseconds(cast(s32) (max_ms_per_frame - frame_time_ms));
         }
+
+        frame_rate = 10000000.0 / (get_current_file_time() - frame_start);
     }
 }
 
