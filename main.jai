@@ -8,8 +8,8 @@ Input :: #import "Input";
 
 KEY_Q :: 81;
 
-window_width  : s32 : 2560;
-window_height : s32 : 1440;
+window_width  : s32 : 1920;
+window_height : s32 : 1080;
 
 window : Window_Type;
 
@@ -23,9 +23,15 @@ Dot :: struct {
     vx, vy: int;
 }
 
+Wall :: struct {
+    x, y: float;
+    width, height: float;
+    thickness: float;
+}
+
 main :: () {
 
-    window = create_window(window_width, window_height, "DotMan");
+    window = create_window(window_width, window_height, "DotManVSWallWoMan");
     Simp.set_render_target(window);
 
     init_font();
@@ -34,7 +40,15 @@ main :: () {
     dot.x = window_width / 2;
     dot.y = window_height / 2;
     assert(Simp.texture_load_from_file(*dot.texture, "img/dot.bmp"));
+
     reset_temporary_storage();
+
+    wall: Wall;
+    wall.x = window_width * 7 / 12.0;
+    wall.y = window_height * 1 / 2.0;
+    wall.width = window_width / 20.0;
+    wall.height = window_height / 5.0;
+    wall.thickness = 2.0;
 
     frame_rate_start := get_current_file_time();
     quit := false;
@@ -67,10 +81,17 @@ main :: () {
             }
         }
 
-        dot.x = ifx dot.x + dot.vx < 0 || dot.x + dot.vx > window_width  then dot.x else dot.x + dot.vx;
-        dot.y = ifx dot.y + dot.vy < 0 || dot.y + dot.vy > window_height then dot.y else dot.y + dot.vy;
+        can_move_x :: inline (x: int, wall: Wall) -> bool {
+            return x >= 0 && x <= window_width;
+        }
+        can_move_y :: inline (y: int, wall: Wall) -> bool {
+            return y >= 0 && y <= window_height;
+        }
 
-        draw_one_frame(dot);
+        if can_move_x(dot.x + dot.vx, wall) dot.x += dot.vx;
+        if can_move_y(dot.y + dot.vy, wall) dot.y += dot.vy;
+
+        draw_one_frame(dot, wall);
         frame += 1;
 
         if frame % frames_between_rate_measurements == 0 {
@@ -81,13 +102,18 @@ main :: () {
     }
 }
 
-draw_one_frame :: (dot: Dot) {
+draw_one_frame :: (dot: Dot, wall: Wall) {
 
     Simp.clear_render_target(1,1,1,1);
 
     { // draw the frame rate
         time_str := tprint("% fps", formatFloat(frame_rate, 2, 3));
         Simp.draw_text(font, 30, window_height - 50, time_str, rgba(0,0,0,1));
+    }
+
+    { // draw the wall
+        Simp.set_shader_for_color();
+        draw_hollow_rectangle(wall.x, wall.y, wall.width, wall.height, wall.thickness, Vector4.{1,1,1,1}, Vector4.{0,0,0,1});
     }
 
     { // draw the dot
@@ -107,6 +133,11 @@ draw_one_frame :: (dot: Dot) {
 }
 
 font: *Simp.Dynamic_Font;
+
+draw_hollow_rectangle :: inline (x: float, y: float, width: float, height: float, thickness: float, inner_color: Vector4, outer_color: Vector4) {
+    Simp.immediate_quad(x, y, x + width, y + height, outer_color);
+    Simp.immediate_quad(x + thickness, y + thickness, x + width - thickness, y + height - thickness, inner_color);
+}
 
 init_font :: () {
     pixel_height := window_height / 64;
