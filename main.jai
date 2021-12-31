@@ -52,7 +52,9 @@ main :: () {
                 if it.key_pressed && it.key_code == KEY_Q {
                     quit = true;
                     break it;
-                } else if it.key_code == {
+                }
+
+                if it.key_code == {
                   case Input.Key_Code.ARROW_UP;
                     dot.vy += ifx it.key_pressed then 10 else -10;
                   case Input.Key_Code.ARROW_DOWN;
