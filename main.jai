@@ -52,24 +52,15 @@ main :: () {
                 if it.key_pressed && it.key_code == KEY_Q {
                     quit = true;
                     break it;
-                }
-
-                if Input.input_button_states[cast(int) Input.Key_Code.ARROW_UP] & Input.Key_Current_State.START {
-                    dot.vy += 10;
-                } else if Input.input_button_states[cast(int) Input.Key_Code.ARROW_DOWN] & Input.Key_Current_State.START {
-                    dot.vy -= 10;
-                } else if Input.input_button_states[cast(int) Input.Key_Code.ARROW_LEFT] & Input.Key_Current_State.START {
-                    dot.vx -= 10;
-                } else if Input.input_button_states[cast(int) Input.Key_Code.ARROW_RIGHT] & Input.Key_Current_State.START {
-                    dot.vx += 10;
-                } else if Input.input_button_states[cast(int) Input.Key_Code.ARROW_UP] & Input.Key_Current_State.END {
-                    dot.vy -= 10;
-                } else if Input.input_button_states[cast(int) Input.Key_Code.ARROW_DOWN] & Input.Key_Current_State.END {
-                    dot.vy += 10;
-                } else if Input.input_button_states[cast(int) Input.Key_Code.ARROW_LEFT] & Input.Key_Current_State.END {
-                    dot.vx += 10;
-                } else if Input.input_button_states[cast(int) Input.Key_Code.ARROW_RIGHT] & Input.Key_Current_State.END {
-                    dot.vx -= 10;
+                } else if it.key_code == {
+                  case Input.Key_Code.ARROW_UP;
+                    dot.vy += ifx it.key_pressed then 10 else -10;
+                  case Input.Key_Code.ARROW_DOWN;
+                    dot.vy += ifx it.key_pressed then -10 else 10;
+                  case Input.Key_Code.ARROW_LEFT;
+                    dot.vx += ifx it.key_pressed then -10 else 10;
+                  case Input.Key_Code.ARROW_RIGHT;
+                    dot.vx += ifx it.key_pressed then 10 else -10;
                 }
             }
         }
