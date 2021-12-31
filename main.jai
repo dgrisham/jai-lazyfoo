@@ -8,46 +8,37 @@ Input :: #import "Input";
 
 KEY_Q :: 81;
 
-window_width  : s32 : 1920;
-window_height : s32 : 1080;
+window_width  : s32 : 2560;
+window_height : s32 : 1440;
 
 window : Window_Type;
 
-textures: struct {
-    press: Simp.Texture;
-    up: Simp.Texture;
-    down: Simp.Texture;
-    left: Simp.Texture;
-    right: Simp.Texture;
-}
-
-current_texture: *Simp.Texture;
-
 frame := 0;
 frame_rate: float64;
-target_fps :: 30.0;
-max_ms_per_frame :: 1000.0 / target_fps;
+frames_between_rate_measurements :: 30;
+
+Dot :: struct {
+    texture: Simp.Texture;
+    x, y: int;
+    vx, vy: int;
+}
 
 main :: () {
 
-    window = create_window(window_width, window_height, "LazyFOO");
+    window = create_window(window_width, window_height, "DotMan");
     Simp.set_render_target(window);
 
     init_font();
 
-    assert(Simp.texture_load_from_file(*textures.press, "img/press.png")
-        && Simp.texture_load_from_file(*textures.up,    "img/up.png")
-        && Simp.texture_load_from_file(*textures.down,  "img/down.png")
-        && Simp.texture_load_from_file(*textures.left,  "img/left.png")
-        && Simp.texture_load_from_file(*textures.right, "img/right.png")
-    );
+    dot: Dot;
+    dot.x = window_width / 2;
+    dot.y = window_height / 2;
+    assert(Simp.texture_load_from_file(*dot.texture, "img/dot.bmp"));
     reset_temporary_storage();
 
-    current_texture = *textures.press;
-
+    frame_rate_start := get_current_file_time();
     quit := false;
     while !quit {
-        frame_start := get_current_file_time();
 
         Input.update_window_events();
 
@@ -60,63 +51,64 @@ main :: () {
               case .KEYBOARD;
                 if it.key_pressed && it.key_code == KEY_Q {
                     quit = true;
-                    break;
+                    break it;
                 }
 
-                if Input.input_button_states[cast(int) Input.Key_Code.ARROW_UP] & Input.Key_Current_State.DOWN {
-                    current_texture = *textures.up;
-                } else if Input.input_button_states[cast(int) Input.Key_Code.ARROW_DOWN] & Input.Key_Current_State.DOWN {
-                    current_texture = *textures.down;
-                } else if Input.input_button_states[cast(int) Input.Key_Code.ARROW_LEFT] & Input.Key_Current_State.DOWN {
-                    current_texture = *textures.left;
-                } else if Input.input_button_states[cast(int) Input.Key_Code.ARROW_RIGHT] & Input.Key_Current_State.DOWN {
-                    current_texture = *textures.right;
-                } else {
-                    current_texture = *textures.press;
+                if Input.input_button_states[cast(int) Input.Key_Code.ARROW_UP] & Input.Key_Current_State.START {
+                    dot.vy += 10;
+                } else if Input.input_button_states[cast(int) Input.Key_Code.ARROW_DOWN] & Input.Key_Current_State.START {
+                    dot.vy -= 10;
+                } else if Input.input_button_states[cast(int) Input.Key_Code.ARROW_LEFT] & Input.Key_Current_State.START {
+                    dot.vx -= 10;
+                } else if Input.input_button_states[cast(int) Input.Key_Code.ARROW_RIGHT] & Input.Key_Current_State.START {
+                    dot.vx += 10;
+                } else if Input.input_button_states[cast(int) Input.Key_Code.ARROW_UP] & Input.Key_Current_State.END {
+                    dot.vy -= 10;
+                } else if Input.input_button_states[cast(int) Input.Key_Code.ARROW_DOWN] & Input.Key_Current_State.END {
+                    dot.vy += 10;
+                } else if Input.input_button_states[cast(int) Input.Key_Code.ARROW_LEFT] & Input.Key_Current_State.END {
+                    dot.vx += 10;
+                } else if Input.input_button_states[cast(int) Input.Key_Code.ARROW_RIGHT] & Input.Key_Current_State.END {
+                    dot.vx -= 10;
                 }
             }
         }
 
-        draw_one_frame();
+        dot.x = ifx dot.x + dot.vx < 0 || dot.x + dot.vx > window_width  then dot.x else dot.x + dot.vx;
+        dot.y = ifx dot.y + dot.vy < 0 || dot.y + dot.vy > window_height then dot.y else dot.y + dot.vy;
+
+        draw_one_frame(dot);
         frame += 1;
 
-        frame_end := get_current_file_time();
-        frame_rate = 10000000.0 / (frame_end - frame_start);
-
-        frame_time_ms := (frame_end - frame_start) / 10000.0;
-        if frame_time_ms < max_ms_per_frame {
-            sleep_milliseconds(cast(s32) (max_ms_per_frame - frame_time_ms));
+        if frame % frames_between_rate_measurements == 0 {
+            frame_rate_end := get_current_file_time();
+            frame_rate = frames_between_rate_measurements * 10000000.0 / (frame_rate_end - frame_rate_start);
+            frame_rate_start = frame_rate_end;
         }
-
-        frame_rate = 10000000.0 / (get_current_file_time() - frame_start);
     }
 }
 
-draw_one_frame :: () {
+draw_one_frame :: (dot: Dot) {
 
-    Simp.clear_render_target(0, 0, 0, 1);
+    Simp.clear_render_target(1,1,1,1);
 
-    time_str := tprint("% fps", frame_rate);
-    Simp.draw_text(font, 30, window_height - 90, time_str);
+    { // draw the frame rate
+        time_str := tprint("% fps", formatFloat(frame_rate, 2, 3));
+        Simp.draw_text(font, 30, window_height - 50, time_str, rgba(0,0,0,1));
+    }
 
-    Simp.set_shader_for_images(current_texture);
-    Simp.immediate_begin();
+    { // draw the dot
+        Simp.set_shader_for_images(*dot.texture);
+        Simp.immediate_begin();
 
-    top_left := xy(
-        window_width / 2.0 - current_texture.width / 2.0,
-        window_height / 2.0 - current_texture.height / 2.0,
-    );
-    texture_width := cast(float) current_texture.width;
-    texture_height := cast(float) current_texture.height;
-    Simp.immediate_quad(
-        top_left,
-        top_left + xy(texture_width, 0),
-        top_left + xy(texture_width, texture_height),
-        top_left + xy(0, texture_height),
-        rgba(1, 1, 1, 1),
-    );
+        Simp.immediate_quad(
+            dot.x - dot.texture.width / 2.0, dot.y - dot.texture.height / 2.0,
+            dot.x + dot.texture.width / 2.0, dot.y + dot.texture.height / 2.0,
+            rgba(1,1,1,1),
+        );
 
-    Simp.immediate_flush();
+        Simp.immediate_flush();
+    }
 
     Simp.swap_buffers(window);
 }
@@ -124,7 +116,7 @@ draw_one_frame :: () {
 font: *Simp.Dynamic_Font;
 
 init_font :: () {
-    pixel_height := window_height / 48;
+    pixel_height := window_height / 64;
     font = Simp.get_font_at_size(".", "OpenSans-BoldItalic.ttf", pixel_height);
     assert(font != null);
 }
