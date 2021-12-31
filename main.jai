@@ -85,8 +85,6 @@ main :: () {
 
         frame_time_ms := (frame_end - frame_start) / 10000.0;
         if frame_time_ms < max_ms_per_frame {
-            print("frame_time_ms: %\n", frame_time_ms);
-            print("sleeping for % ms\n", cast(s32) (max_ms_per_frame - frame_time_ms));
             sleep_milliseconds(cast(s32) (max_ms_per_frame - frame_time_ms));
         }
 
