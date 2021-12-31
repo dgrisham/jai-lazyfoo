@@ -80,7 +80,7 @@ main :: () {
         frame += 1;
         if frame % frames_to_wait == 0 {
             framerate_measurement_stop := get_current_file_time();
-            frame_rate = frames_to_wait / ((framerate_measurement_stop - framerate_measurement_start) / 10000000.0);
+            frame_rate = frames_to_wait * 10000000.0 / (framerate_measurement_stop - framerate_measurement_start);
             framerate_measurement_start = framerate_measurement_stop;
         }
     }
@@ -90,7 +90,7 @@ draw_one_frame :: () {
 
     Simp.clear_render_target(0, 0, 0, 1);
 
-    time_str := tprint("% fps (frame %)", frame_rate, frame);
+    time_str := tprint("% fps", frame_rate);
     Simp.draw_text(font, 30, window_height - 90, time_str);
 
     Simp.set_shader_for_images(current_texture);
