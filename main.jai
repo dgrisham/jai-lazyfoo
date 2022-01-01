@@ -8,8 +8,8 @@ Input :: #import "Input";
 
 KEY_Q :: 81;
 
-window_width  : s32 : 1920;
-window_height : s32 : 1080;
+window_width  : s32 : 2560;
+window_height : s32 : 1440;
 
 window : Window_Type;
 
@@ -19,8 +19,9 @@ frames_between_rate_measurements :: 30;
 
 Dot :: struct {
     texture: Simp.Texture;
-    x, y: int;
-    vx, vy: int;
+    x, y: float;
+    vx, vy: float;
+    width, height: float;
 }
 
 Wall :: struct {
@@ -37,9 +38,11 @@ main :: () {
     init_font();
 
     dot: Dot;
-    dot.x = window_width / 2;
-    dot.y = window_height / 2;
+    dot.x = cast(float) (window_width / 2);
+    dot.y = cast(float) (window_height / 2);
     assert(Simp.texture_load_from_file(*dot.texture, "img/dot.bmp"));
+    dot.width  = cast(float) dot.texture.width;
+    dot.height = cast(float) dot.texture.height;
 
     reset_temporary_storage();
 
@@ -81,15 +84,41 @@ main :: () {
             }
         }
 
-        can_move_x :: inline (x: int, wall: Wall) -> bool {
-            return x >= 0 && x <= window_width;
-        }
-        can_move_y :: inline (y: int, wall: Wall) -> bool {
-            return y >= 0 && y <= window_height;
+        check_collision :: (dot: Dot, move: Vector2, wall: Wall) -> bool {
+            x_new := cast(float) dot.x + move.x;
+            y_new := cast(float) dot.y + move.y;
+
+            dot_top    := y_new;
+            dot_bottom := y_new + dot.height;
+            dot_left   := x_new;
+            dot_right  := x_new + dot.width;
+
+            wall_top    := wall.y;
+            wall_bottom := wall.y + wall.height;
+            wall_left   := wall.x;
+            wall_right  := wall.x + wall.width;
+
+            if dot_bottom <= wall_top    return false;
+            if dot_top    >= wall_bottom return false;
+            if dot_right  <= wall_left   return false;
+            if dot_left   >= wall_right  return false;
+
+            return true;
         }
 
-        if can_move_x(dot.x + dot.vx, wall) dot.x += dot.vx;
-        if can_move_y(dot.y + dot.vy, wall) dot.y += dot.vy;
+        if dot.x + dot.vx >= 0 &&
+           dot.x + dot.vx + dot.width <= cast(float)window_width &&
+           !check_collision(dot, xy(dot.vx, 0), wall)
+        {
+            dot.x += dot.vx;
+        }
+
+        if dot.y + dot.vy >= 0 &&
+           dot.y + dot.vy + dot.height <= cast(float)window_height &&
+           !check_collision(dot, xy(0, dot.vy), wall)
+        {
+            dot.y += dot.vy;
+        }
 
         draw_one_frame(dot, wall);
         frame += 1;
@@ -121,8 +150,7 @@ draw_one_frame :: (dot: Dot, wall: Wall) {
         Simp.immediate_begin();
 
         Simp.immediate_quad(
-            dot.x - dot.texture.width / 2.0, dot.y - dot.texture.height / 2.0,
-            dot.x + dot.texture.width / 2.0, dot.y + dot.texture.height / 2.0,
+            dot.x, dot.y, dot.x + dot.width, dot.y + dot.height,
             rgba(1,1,1,1),
         );
 
