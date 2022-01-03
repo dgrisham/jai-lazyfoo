@@ -17,17 +17,55 @@ frame := 0;
 frame_rate: float64;
 frames_between_rate_measurements :: 30;
 
+dot_width  : float : 20;
+dot_height : float : 20;
 Dot :: struct {
     texture: Simp.Texture;
+    width:  float = dot_width;
+    height: float = dot_height;
+    colliders: [11] Collider = .[
+        .{width = 6,  height = 1},
+        .{width = 10, height = 1},
+        .{width = 14, height = 1},
+        .{width = 16, height = 2},
+        .{width = 18, height = 2},
+        .{width = 20, height = 6},
+        .{width = 18, height = 2},
+        .{width = 16, height = 2},
+        .{width = 14, height = 1},
+        .{width = 10, height = 1},
+        .{width = 6,  height = 1},
+    ];
     x, y: float;
     vx, vy: float;
-    width, height: float;
 }
+
+// Entity :: struct {
+//     x, y: float;
+//     width, height: float;
+//     colliders: [] Collider;
+// }
+
+// Dot :: struct {
+//     using Entity;
+//     texture: Simp.Texture;
+//     vx, vy: float;
+// }
+
+// Wall :: struct {
+//     using Entity;
+//     thickness : float : 2;
+// }
 
 Wall :: struct {
     x, y: float;
+    width  :: cast(float) window_width / 20;
+    height :: cast(float) window_height / 5;
+    thickness : float : 2;
+}
+
+Collider :: struct {
     width, height: float;
-    thickness: float;
 }
 
 main :: () {
@@ -41,17 +79,12 @@ main :: () {
     dot.x = cast(float) (window_width / 2);
     dot.y = cast(float) (window_height / 2);
     assert(Simp.texture_load_from_file(*dot.texture, "img/dot.bmp"));
-    dot.width  = cast(float) dot.texture.width;
-    dot.height = cast(float) dot.texture.height;
 
     reset_temporary_storage();
 
     wall: Wall;
-    wall.x = window_width * 7 / 12.0;
+    wall.x = window_width  * 7 / 12.0;
     wall.y = window_height * 1 / 2.0;
-    wall.width = window_width / 20.0;
-    wall.height = window_height / 5.0;
-    wall.thickness = 2.0;
 
     frame_rate_start := get_current_file_time();
     quit := false;
@@ -84,40 +117,58 @@ main :: () {
             }
         }
 
-        check_collision :: (dot: Dot, move: Vector2, wall: Wall) -> bool {
-            x_new := cast(float) dot.x + move.x;
-            y_new := cast(float) dot.y + move.y;
+        check_collision :: (dot: Dot, wall: Wall) -> Vector2 {
+            return check_collision(xy(dot.x, dot.y), dot.width, dot.colliders, xy(wall.x, wall.y), .{wall.width, wall.height});
+        }
+        check_collision :: (position_a: Vector2, width_a: float, colliders_a: [] Collider, position_b: Vector2, collider_b: Collider) -> Vector2 {
 
-            dot_top    := y_new;
-            dot_bottom := y_new + dot.height;
-            dot_left   := x_new;
-            dot_right  := x_new + dot.width;
+            row_a: float = 0;
 
-            wall_top    := wall.y;
-            wall_bottom := wall.y + wall.height;
-            wall_left   := wall.x;
-            wall_right  := wall.x + wall.width;
+            bounce_back := xy(0, 0);
+            for colliders_a {
+                left_a   := position_a.x + (width_a - it.width) / 2;
+                right_a  := left_a + it.width;
+                bottom_a := position_a.y + row_a;
+                top_a    := bottom_a + it.height;
 
-            if dot_bottom <= wall_top    return false;
-            if dot_top    >= wall_bottom return false;
-            if dot_right  <= wall_left   return false;
-            if dot_left   >= wall_right  return false;
+                row_a += it.height;
 
-            return true;
+                left_b   := position_b.x;
+                right_b  := left_b + collider_b.width;
+                bottom_b := position_b.y;
+                top_b    := bottom_b + collider_b.height;
+
+                if !(right_a  <= left_b   ||
+                     left_a   >= right_b  ||
+                     top_b    <= bottom_a ||
+                     bottom_b >= top_a)
+                { // collision detected
+                    bounce_back.x = max(bounce_back.x, min(right_a - left_b, right_b - left_a));
+                    bounce_back.y = max(bounce_back.y, min(top_b - bottom_a, top_a - bottom_b));
+                }
+            }
+
+            return bounce_back;
         }
 
-        if dot.x + dot.vx >= 0 &&
-           dot.x + dot.vx + dot.width <= cast(float)window_width &&
-           !check_collision(dot, xy(dot.vx, 0), wall)
         {
-            dot.x += dot.vx;
+            if dot.x + dot.vx >= 0 &&
+               dot.x + dot.vx + dot.width <= cast(float)window_width
+            {
+                dot.x += dot.vx;
+                bounce_back := check_collision(dot, wall);
+                dot.x += ifx dot.vx > 0 then -bounce_back.x else bounce_back.x;
+            }
         }
 
-        if dot.y + dot.vy >= 0 &&
-           dot.y + dot.vy + dot.height <= cast(float)window_height &&
-           !check_collision(dot, xy(0, dot.vy), wall)
         {
-            dot.y += dot.vy;
+            if dot.y + dot.vy >= 0 &&
+               dot.y + dot.vy + dot.height <= cast(float)window_height
+            {
+                dot.y += dot.vy;
+                bounce_back := check_collision(dot, wall);
+                dot.y += ifx dot.vy > 0 then -bounce_back.y else bounce_back.y;
+            }
         }
 
         draw_one_frame(dot, wall);
@@ -140,11 +191,6 @@ draw_one_frame :: (dot: Dot, wall: Wall) {
         Simp.draw_text(font, 30, window_height - 50, time_str, rgba(0,0,0,1));
     }
 
-    { // draw the wall
-        Simp.set_shader_for_color();
-        draw_hollow_rectangle(wall.x, wall.y, wall.width, wall.height, wall.thickness, Vector4.{1,1,1,1}, Vector4.{0,0,0,1});
-    }
-
     { // draw the dot
         Simp.set_shader_for_images(*dot.texture);
         Simp.immediate_begin();
@@ -155,6 +201,11 @@ draw_one_frame :: (dot: Dot, wall: Wall) {
         );
 
         Simp.immediate_flush();
+    }
+
+    { // draw the wall
+        Simp.set_shader_for_color();
+        draw_hollow_rectangle(wall.x, wall.y, wall.width, wall.height, wall.thickness, Vector4.{1,1,1,1}, Vector4.{0,0,0,1});
     }
 
     Simp.swap_buffers(window);
