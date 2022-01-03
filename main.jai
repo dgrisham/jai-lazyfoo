@@ -19,11 +19,26 @@ frames_between_rate_measurements :: 30;
 
 dot_width  : float : 20;
 dot_height : float : 20;
+
+Entity :: struct {
+    x, y: float;
+    width, height: float;
+    colliders: [] Collider;
+}
+
 Dot :: struct {
+    using entity: Entity;
+    width  = dot_width;
+    height = dot_height;
+
     texture: Simp.Texture;
-    width:  float = dot_width;
-    height: float = dot_height;
-    colliders: [11] Collider = .[
+    vx, vy: float;
+}
+
+New_Dot :: () -> Dot {
+    dot: Dot;
+
+    colliders : [11] Collider : Collider.[
         .{width = 6,  height = 1},
         .{width = 10, height = 1},
         .{width = 14, height = 1},
@@ -36,32 +51,29 @@ Dot :: struct {
         .{width = 10, height = 1},
         .{width = 6,  height = 1},
     ];
-    x, y: float;
-    vx, vy: float;
+    dot.colliders = colliders;
+
+    return dot;
 }
 
-// Entity :: struct {
-//     x, y: float;
-//     width, height: float;
-//     colliders: [] Collider;
-// }
-
-// Dot :: struct {
-//     using Entity;
-//     texture: Simp.Texture;
-//     vx, vy: float;
-// }
-
-// Wall :: struct {
-//     using Entity;
-//     thickness : float : 2;
-// }
-
 Wall :: struct {
-    x, y: float;
-    width  :: cast(float) window_width / 20;
-    height :: cast(float) window_height / 5;
+    using entity: Entity;
     thickness : float : 2;
+}
+
+New_Wall :: (width: float, height: float) -> Wall {
+    wall: Wall;
+    wall.width = width;
+    wall.height = height;
+
+    collider: Collider;
+    collider.width  = width;
+    collider.height = height;
+
+    wall.colliders = NewArray(1, Collider);
+    wall.colliders[0] = collider;
+
+    return wall;
 }
 
 Collider :: struct {
@@ -75,14 +87,14 @@ main :: () {
 
     init_font();
 
-    dot: Dot;
+    dot := New_Dot();
     dot.x = cast(float) (window_width / 2);
     dot.y = cast(float) (window_height / 2);
     assert(Simp.texture_load_from_file(*dot.texture, "img/dot.bmp"));
 
     reset_temporary_storage();
 
-    wall: Wall;
+    wall := New_Wall(cast(float) window_width / 20, cast(float) window_height / 5);
     wall.x = window_width  * 7 / 12.0;
     wall.y = window_height * 1 / 2.0;
 
@@ -117,34 +129,37 @@ main :: () {
             }
         }
 
-        check_collision :: (dot: Dot, wall: Wall) -> Vector2 {
-            return check_collision(xy(dot.x, dot.y), dot.width, dot.colliders, xy(wall.x, wall.y), .{wall.width, wall.height});
-        }
-        check_collision :: (position_a: Vector2, width_a: float, colliders_a: [] Collider, position_b: Vector2, collider_b: Collider) -> Vector2 {
+        check_collision :: (entity_a: Entity, entity_b: Entity) -> Vector2 {
 
             row_a: float = 0;
 
             bounce_back := xy(0, 0);
-            for colliders_a {
-                left_a   := position_a.x + (width_a - it.width) / 2;
-                right_a  := left_a + it.width;
-                bottom_a := position_a.y + row_a;
-                top_a    := bottom_a + it.height;
+            for collider_a: entity_a.colliders {
+                left_a   := entity_a.x + (entity_a.width - collider_a.width) / 2;
+                right_a  := left_a + collider_a.width;
+                bottom_a := entity_a.y + row_a;
+                top_a    := bottom_a + collider_a.height;
 
-                row_a += it.height;
+                row_a += collider_a.height;
 
-                left_b   := position_b.x;
-                right_b  := left_b + collider_b.width;
-                bottom_b := position_b.y;
-                top_b    := bottom_b + collider_b.height;
+                row_b: float = 0;
+                for collider_b: entity_b.colliders {
 
-                if !(right_a  <= left_b   ||
-                     left_a   >= right_b  ||
-                     top_b    <= bottom_a ||
-                     bottom_b >= top_a)
-                { // collision detected
-                    bounce_back.x = max(bounce_back.x, min(right_a - left_b, right_b - left_a));
-                    bounce_back.y = max(bounce_back.y, min(top_b - bottom_a, top_a - bottom_b));
+                    left_b   := entity_b.x;
+                    right_b  := left_b + collider_b.width;
+                    bottom_b := entity_b.y + row_b;
+                    top_b    := bottom_b + collider_b.height;
+
+                    row_b += collider_b.height;
+
+                    if !(right_a  <= left_b   ||
+                         left_a   >= right_b  ||
+                         top_b    <= bottom_a ||
+                         bottom_b >= top_a)
+                    { // collision detected
+                        bounce_back.x = max(bounce_back.x, min(right_a - left_b, right_b - left_a));
+                        bounce_back.y = max(bounce_back.y, min(top_b - bottom_a, top_a - bottom_b));
+                    }
                 }
             }
 
