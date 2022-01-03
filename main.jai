@@ -94,9 +94,19 @@ main :: () {
 
     reset_temporary_storage();
 
-    wall := New_Wall(cast(float) window_width / 20, cast(float) window_height / 5);
-    wall.x = window_width  * 7 / 12.0;
-    wall.y = window_height * 1 / 2.0;
+    walls := NewArray(3, Wall);
+
+    walls[0] = New_Wall(cast(float) window_width / 20, cast(float) window_height / 5);
+    walls[0].x = window_width  * 7 / 12.0;
+    walls[0].y = window_height * 1 / 2.0;
+
+    walls[1] = New_Wall(cast(float) window_width / 10, cast(float) window_height / 20);
+    walls[1].x = window_width  * 2 / 12.0;
+    walls[1].y = window_height * 1 / 5.0;
+
+    walls[2] = New_Wall(cast(float) window_width / 50, cast(float) window_height - 100);
+    walls[2].x = window_width  * 3 / 50.0;
+    walls[2].y = 50;
 
     frame_rate_start := get_current_file_time();
     quit := false;
@@ -171,8 +181,10 @@ main :: () {
                dot.x + dot.vx + dot.width <= cast(float)window_width
             {
                 dot.x += dot.vx;
-                bounce_back := check_collision(dot, wall);
-                dot.x += ifx dot.vx > 0 then -bounce_back.x else bounce_back.x;
+                for wall: walls {
+                    bounce_back := check_collision(dot, wall);
+                    dot.x += ifx dot.vx > 0 then -bounce_back.x else bounce_back.x;
+                }
             }
         }
 
@@ -181,12 +193,14 @@ main :: () {
                dot.y + dot.vy + dot.height <= cast(float)window_height
             {
                 dot.y += dot.vy;
-                bounce_back := check_collision(dot, wall);
-                dot.y += ifx dot.vy > 0 then -bounce_back.y else bounce_back.y;
+                for wall: walls {
+                    bounce_back := check_collision(dot, wall);
+                    dot.y += ifx dot.vy > 0 then -bounce_back.y else bounce_back.y;
+                }
             }
         }
 
-        draw_one_frame(dot, wall);
+        draw_one_frame(dot, walls);
         frame += 1;
 
         if frame % frames_between_rate_measurements == 0 {
@@ -197,7 +211,7 @@ main :: () {
     }
 }
 
-draw_one_frame :: (dot: Dot, wall: Wall) {
+draw_one_frame :: (dot: Dot, walls: [] Wall) {
 
     Simp.clear_render_target(1,1,1,1);
 
@@ -218,7 +232,7 @@ draw_one_frame :: (dot: Dot, wall: Wall) {
         Simp.immediate_flush();
     }
 
-    { // draw the wall
+    for wall: walls { // draw the wall
         Simp.set_shader_for_color();
         draw_hollow_rectangle(wall.x, wall.y, wall.width, wall.height, wall.thickness, Vector4.{1,1,1,1}, Vector4.{0,0,0,1});
     }
