@@ -92,9 +92,14 @@ main :: () {
     dot.y = cast(float) (window_height / 2);
     assert(Simp.texture_load_from_file(*dot.texture, "img/dot.bmp"));
 
+    other_dot := New_Dot();
+    other_dot.x = cast(float) (window_width / 4);
+    other_dot.y = cast(float) (window_height / 2);
+    other_dot.texture = dot.texture;
+
     reset_temporary_storage();
 
-    walls := NewArray(3, Wall);
+    walls: [3] Wall;
 
     walls[0] = New_Wall(cast(float) window_width / 20, cast(float) window_height / 5);
     walls[0].x = window_width  * 7 / 12.0;
@@ -145,6 +150,7 @@ main :: () {
 
             bounce_back := xy(0, 0);
             for collider_a: entity_a.colliders {
+
                 left_a   := entity_a.x + (entity_a.width - collider_a.width) / 2;
                 right_a  := left_a + collider_a.width;
                 bottom_a := entity_a.y + row_a;
@@ -155,7 +161,7 @@ main :: () {
                 row_b: float = 0;
                 for collider_b: entity_b.colliders {
 
-                    left_b   := entity_b.x;
+                    left_b   := entity_b.x + (entity_b.width - collider_b.width) / 2;
                     right_b  := left_b + collider_b.width;
                     bottom_b := entity_b.y + row_b;
                     top_b    := bottom_b + collider_b.height;
@@ -164,11 +170,11 @@ main :: () {
 
                     if !(right_a  <= left_b   ||
                          left_a   >= right_b  ||
-                         top_b    <= bottom_a ||
-                         bottom_b >= top_a)
+                         top_a    <= bottom_b ||
+                         bottom_a >= top_b)
                     { // collision detected
                         bounce_back.x = max(bounce_back.x, min(right_a - left_b, right_b - left_a));
-                        bounce_back.y = max(bounce_back.y, min(top_b - bottom_a, top_a - bottom_b));
+                        bounce_back.y = max(bounce_back.y, min(top_a - bottom_b, top_b - bottom_a));
                     }
                 }
             }
@@ -176,31 +182,37 @@ main :: () {
             return bounce_back;
         }
 
+        if dot.vx != 0 &&
+           dot.x + dot.vx >= 0 &&
+           dot.x + dot.vx + dot.width <= cast(float)window_width
         {
-            if dot.x + dot.vx >= 0 &&
-               dot.x + dot.vx + dot.width <= cast(float)window_width
-            {
-                dot.x += dot.vx;
-                for wall: walls {
-                    bounce_back := check_collision(dot, wall);
-                    dot.x += ifx dot.vx > 0 then -bounce_back.x else bounce_back.x;
-                }
+            dot.x += dot.vx;
+            bounce_back := check_collision(dot, other_dot);
+            bbx := ifx dot.vx > 0 then -bounce_back.x else bounce_back.x;
+            dot.x += bbx;
+            if bounce_back.x print("bouncing back X: %\n", bbx);
+            for wall: walls {
+                bounce_back := check_collision(dot, wall);
+                dot.x += ifx dot.vx > 0 then -bounce_back.x else bounce_back.x;
             }
         }
 
+        if dot.vy != 0 &&
+           dot.y + dot.vy >= 0 &&
+           dot.y + dot.vy + dot.height <= cast(float)window_height
         {
-            if dot.y + dot.vy >= 0 &&
-               dot.y + dot.vy + dot.height <= cast(float)window_height
-            {
-                dot.y += dot.vy;
-                for wall: walls {
-                    bounce_back := check_collision(dot, wall);
-                    dot.y += ifx dot.vy > 0 then -bounce_back.y else bounce_back.y;
-                }
+            dot.y += dot.vy;
+            bounce_back := check_collision(dot, other_dot);
+            bby := ifx dot.vy > 0 then -bounce_back.y else bounce_back.y;
+            if bounce_back.y print("bouncing back Y: %\n", bby);
+            dot.y += bby;
+            for wall: walls {
+                bounce_back := check_collision(dot, wall);
+                dot.y += ifx dot.vy > 0 then -bounce_back.y else bounce_back.y;
             }
         }
 
-        draw_one_frame(dot, walls);
+        draw_one_frame(dot, other_dot, walls);
         frame += 1;
 
         if frame % frames_between_rate_measurements == 0 {
@@ -211,7 +223,7 @@ main :: () {
     }
 }
 
-draw_one_frame :: (dot: Dot, walls: [] Wall) {
+draw_one_frame :: (dot: Dot, other_dot: Dot, walls: [] Wall) {
 
     Simp.clear_render_target(1,1,1,1);
 
@@ -232,7 +244,20 @@ draw_one_frame :: (dot: Dot, walls: [] Wall) {
         Simp.immediate_flush();
     }
 
-    for wall: walls { // draw the wall
+    { // draw the OTHER dot
+        Simp.set_shader_for_images(*other_dot.texture);
+        Simp.immediate_begin();
+
+        Simp.immediate_quad(
+            other_dot.x, other_dot.y, other_dot.x + other_dot.width, other_dot.y + other_dot.height,
+            rgba(1,0,0,1),
+        );
+
+        Simp.immediate_flush();
+    }
+
+    // draw the walls
+    for wall: walls {
         Simp.set_shader_for_color();
         draw_hollow_rectangle(wall.x, wall.y, wall.width, wall.height, wall.thickness, Vector4.{1,1,1,1}, Vector4.{0,0,0,1});
     }
