@@ -92,10 +92,30 @@ main :: () {
     dot.y = cast(float) (window_height / 2);
     assert(Simp.texture_load_from_file(*dot.texture, "img/dot.bmp"));
 
-    other_dot := New_Dot();
-    other_dot.x = cast(float) (window_width / 2 + 20);
-    other_dot.y = cast(float) (window_height / 2);
-    other_dot.texture = dot.texture;
+    other_dots: [6] Dot;
+
+    for *other_dots {
+        <<it = New_Dot();
+        it.texture = dot.texture;
+    }
+
+    other_dots[0].x = cast(float) (window_width / 2 + 20);
+    other_dots[0].y = cast(float) (window_height / 2);
+
+    other_dots[1].x = cast(float) (window_width / 2 + 30);
+    other_dots[1].y = cast(float) (window_height / 2 - 40);
+
+    other_dots[2].x = cast(float) (window_width / 2 - 40);
+    other_dots[2].y = cast(float) (window_height / 2 + 10);
+
+    other_dots[3].x = cast(float) (window_width / 2 - 80);
+    other_dots[3].y = cast(float) (window_height / 2 - 30);
+
+    other_dots[4].x = cast(float) (window_width / 2 - 100);
+    other_dots[4].y = cast(float) (window_height / 2 - 100);
+
+    other_dots[5].x = cast(float) (window_width / 2 + 1000);
+    other_dots[5].y = cast(float) (window_height / 2);
 
     reset_temporary_storage();
 
@@ -150,17 +170,16 @@ main :: () {
             bounce_back : float = 0;
             for collider_a: entity_a.colliders {
 
-                left_a   := entity_a.x + (entity_a.width - collider_a.width) / 2;
-                right_a  := left_a + collider_a.width;
-                top_a    := bottom_a + collider_a.height;
-
+                left_a  := entity_a.x + (entity_a.width - collider_a.width) / 2;
+                right_a := left_a + collider_a.width;
+                top_a   := bottom_a + collider_a.height;
 
                 bottom_b := entity_b.y;
                 for collider_b: entity_b.colliders {
 
-                    left_b   := entity_b.x + (entity_b.width - collider_b.width) / 2;
-                    right_b  := left_b + collider_b.width;
-                    top_b    := bottom_b + collider_b.height;
+                    left_b  := entity_b.x + (entity_b.width - collider_b.width) / 2;
+                    right_b := left_b + collider_b.width;
+                    top_b   := bottom_b + collider_b.height;
 
                     if !(right_a  <= left_b   ||
                          left_a   >= right_b  ||
@@ -216,8 +235,10 @@ main :: () {
            dot.x + dot.vx + dot.width <= cast(float)window_width
         {
             dot.x += dot.vx;
-            bounce_back := check_collision_x(dot, other_dot);
-            dot.x += ifx dot.vx > 0 then -bounce_back else bounce_back;
+            for other_dot: other_dots {
+                bounce_back := check_collision_x(dot, other_dot);
+                dot.x += ifx dot.vx > 0 then -bounce_back else bounce_back;
+            }
             for wall: walls {
                 bounce_back := check_collision_x(dot, wall);
                 dot.x += ifx dot.vx > 0 then -bounce_back else bounce_back;
@@ -229,8 +250,10 @@ main :: () {
            dot.y + dot.vy + dot.height <= cast(float)window_height
         {
             dot.y += dot.vy;
-            while check_collision_y(dot, other_dot) {
-                dot.y += ifx dot.vy > 0 then -1 else 1;
+            for other_dot: other_dots {
+                while check_collision_y(dot, other_dot) {
+                    dot.y += ifx dot.vy > 0 then -1 else 1;
+                }
             }
             for wall: walls {
                 while check_collision_y(dot, wall) {
@@ -239,7 +262,7 @@ main :: () {
             }
         }
 
-        draw_one_frame(dot, other_dot, walls);
+        draw_one_frame(dot, other_dots, walls);
         frame += 1;
 
         if frame % frames_between_rate_measurements == 0 {
@@ -250,7 +273,7 @@ main :: () {
     }
 }
 
-draw_one_frame :: (dot: Dot, other_dot: Dot, walls: [] Wall) {
+draw_one_frame :: (dot: Dot, other_dots: [] Dot, walls: [] Wall) {
 
     Simp.clear_render_target(1,1,1,1);
 
@@ -259,7 +282,7 @@ draw_one_frame :: (dot: Dot, other_dot: Dot, walls: [] Wall) {
         Simp.draw_text(font, 30, window_height - 50, time_str, rgba(0,0,0,1));
     }
 
-    { // draw the OTHER dot
+    for other_dot: other_dots { // draw the OTHER dots
         Simp.set_shader_for_images(*other_dot.texture);
         Simp.immediate_begin();
 
