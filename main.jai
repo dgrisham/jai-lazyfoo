@@ -93,7 +93,7 @@ main :: () {
     assert(Simp.texture_load_from_file(*dot.texture, "img/dot.bmp"));
 
     other_dot := New_Dot();
-    other_dot.x = cast(float) (window_width / 4);
+    other_dot.x = cast(float) (window_width / 2 + 20);
     other_dot.y = cast(float) (window_height / 2);
     other_dot.texture = dot.texture;
 
@@ -144,42 +144,71 @@ main :: () {
             }
         }
 
-        check_collision :: (entity_a: Entity, entity_b: Entity) -> Vector2 {
+        check_collision_x :: (entity_a: Entity, entity_b: Entity) -> float {
 
-            row_a: float = 0;
-
-            bounce_back := xy(0, 0);
+            bottom_a := entity_a.y;
+            bounce_back : float = 0;
             for collider_a: entity_a.colliders {
 
                 left_a   := entity_a.x + (entity_a.width - collider_a.width) / 2;
                 right_a  := left_a + collider_a.width;
-                bottom_a := entity_a.y + row_a;
                 top_a    := bottom_a + collider_a.height;
 
-                row_a += collider_a.height;
 
-                row_b: float = 0;
+                bottom_b := entity_b.y;
                 for collider_b: entity_b.colliders {
 
                     left_b   := entity_b.x + (entity_b.width - collider_b.width) / 2;
                     right_b  := left_b + collider_b.width;
-                    bottom_b := entity_b.y + row_b;
                     top_b    := bottom_b + collider_b.height;
-
-                    row_b += collider_b.height;
 
                     if !(right_a  <= left_b   ||
                          left_a   >= right_b  ||
                          top_a    <= bottom_b ||
                          bottom_a >= top_b)
                     { // collision detected
-                        bounce_back.x = max(bounce_back.x, min(right_a - left_b, right_b - left_a));
-                        bounce_back.y = max(bounce_back.y, min(top_a - bottom_b, top_b - bottom_a));
+                        bounce_back = max(bounce_back, min(right_a - left_b, right_b - left_a));
                     }
+
+                    bottom_b = top_b;
                 }
+                bottom_a = top_a;
             }
 
             return bounce_back;
+        }
+
+        check_collision_y :: (entity_a: Entity, entity_b: Entity) -> bool {
+
+            bottom_a := entity_a.y;
+            for collider_a: entity_a.colliders {
+
+                left_a   := entity_a.x + (entity_a.width - collider_a.width) / 2;
+                right_a  := left_a + collider_a.width;
+                top_a    := bottom_a + collider_a.height;
+
+
+                bottom_b := entity_b.y;
+                for collider_b: entity_b.colliders {
+
+                    left_b   := entity_b.x + (entity_b.width - collider_b.width) / 2;
+                    right_b  := left_b + collider_b.width;
+                    top_b    := bottom_b + collider_b.height;
+
+                    if !(right_a  <= left_b   ||
+                         left_a   >= right_b  ||
+                         top_a    <= bottom_b ||
+                         bottom_a >= top_b)
+                    { // collision detected
+                        return true;
+                    }
+
+                    bottom_b = top_b;
+                }
+                bottom_a = top_a;
+            }
+
+            return false;
         }
 
         if dot.vx != 0 &&
@@ -187,13 +216,11 @@ main :: () {
            dot.x + dot.vx + dot.width <= cast(float)window_width
         {
             dot.x += dot.vx;
-            bounce_back := check_collision(dot, other_dot);
-            bbx := ifx dot.vx > 0 then -bounce_back.x else bounce_back.x;
-            dot.x += bbx;
-            if bounce_back.x print("bouncing back X: %\n", bbx);
+            bounce_back := check_collision_x(dot, other_dot);
+            dot.x += ifx dot.vx > 0 then -bounce_back else bounce_back;
             for wall: walls {
-                bounce_back := check_collision(dot, wall);
-                dot.x += ifx dot.vx > 0 then -bounce_back.x else bounce_back.x;
+                bounce_back := check_collision_x(dot, wall);
+                dot.x += ifx dot.vx > 0 then -bounce_back else bounce_back;
             }
         }
 
@@ -202,13 +229,13 @@ main :: () {
            dot.y + dot.vy + dot.height <= cast(float)window_height
         {
             dot.y += dot.vy;
-            bounce_back := check_collision(dot, other_dot);
-            bby := ifx dot.vy > 0 then -bounce_back.y else bounce_back.y;
-            if bounce_back.y print("bouncing back Y: %\n", bby);
-            dot.y += bby;
+            while check_collision_y(dot, other_dot) {
+                dot.y += ifx dot.vy > 0 then -1 else 1;
+            }
             for wall: walls {
-                bounce_back := check_collision(dot, wall);
-                dot.y += ifx dot.vy > 0 then -bounce_back.y else bounce_back.y;
+                while check_collision_y(dot, wall) {
+                    dot.y += ifx dot.vy > 0 then -1 else 1;
+                }
             }
         }
 
@@ -232,18 +259,6 @@ draw_one_frame :: (dot: Dot, other_dot: Dot, walls: [] Wall) {
         Simp.draw_text(font, 30, window_height - 50, time_str, rgba(0,0,0,1));
     }
 
-    { // draw the dot
-        Simp.set_shader_for_images(*dot.texture);
-        Simp.immediate_begin();
-
-        Simp.immediate_quad(
-            dot.x, dot.y, dot.x + dot.width, dot.y + dot.height,
-            rgba(1,1,1,1),
-        );
-
-        Simp.immediate_flush();
-    }
-
     { // draw the OTHER dot
         Simp.set_shader_for_images(*other_dot.texture);
         Simp.immediate_begin();
@@ -251,6 +266,18 @@ draw_one_frame :: (dot: Dot, other_dot: Dot, walls: [] Wall) {
         Simp.immediate_quad(
             other_dot.x, other_dot.y, other_dot.x + other_dot.width, other_dot.y + other_dot.height,
             rgba(1,0,0,1),
+        );
+
+        Simp.immediate_flush();
+    }
+
+    { // draw the dot
+        Simp.set_shader_for_images(*dot.texture);
+        Simp.immediate_begin();
+
+        Simp.immediate_quad(
+            dot.x, dot.y, dot.x + dot.width, dot.y + dot.height,
+            rgba(1,1,1,0.3),
         );
 
         Simp.immediate_flush();
