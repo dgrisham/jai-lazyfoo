@@ -153,27 +153,27 @@ main :: () {
         }
 
         check_collision :: (dot: Dot, wall: Wall) -> bool {
-            closest_point_on_wall_to_dot: Vector2;
+            closest_point_on_wall_to_dot_center: Vector2;
 
             dot_center := xy(dot.x + dot.r, dot.y + dot.r);
 
             if dot_center.x < wall.x {
-                closest_point_on_wall_to_dot.x = wall.x;
+                closest_point_on_wall_to_dot_center.x = wall.x;
             } else if dot_center.x > wall.x + wall.width {
-                closest_point_on_wall_to_dot.x = wall.x + wall.width;
+                closest_point_on_wall_to_dot_center.x = wall.x + wall.width;
             } else { // center of dot is within the wall's boundaries along the x-axis
-                closest_point_on_wall_to_dot.x = dot_center.x;
+                closest_point_on_wall_to_dot_center.x = dot_center.x;
             }
 
             if dot_center.y < wall.y {
-                closest_point_on_wall_to_dot.y = wall.y;
+                closest_point_on_wall_to_dot_center.y = wall.y;
             } else if dot_center.y > wall.y + wall.height {
-                closest_point_on_wall_to_dot.y = wall.y + wall.height;
+                closest_point_on_wall_to_dot_center.y = wall.y + wall.height;
             } else { // center of dot is within the wall's boundaries along the y-axis
-                closest_point_on_wall_to_dot.y = dot_center.y;
+                closest_point_on_wall_to_dot_center.y = dot_center.y;
             }
 
-            if distance_squared(dot_center, closest_point_on_wall_to_dot) < square(dot.r) {
+            if distance_squared(dot_center, closest_point_on_wall_to_dot_center) < square(dot.r) {
                 return true;
             }
 
