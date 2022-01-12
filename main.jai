@@ -8,8 +8,8 @@ Input :: #import "Input";
 
 KEY_Q :: 81;
 
-window_width  : s32 : 2560;
-window_height : s32 : 1440;
+window_width  : s32 : 1200;
+window_height : s32 : 1080;
 
 window : Window_Type;
 
@@ -20,6 +20,8 @@ frames_between_rate_measurements :: 30;
 dot_width   : float : 20;
 dot_height  : float : 20;
 dot_texture : *Simp.Texture;
+
+dot_speed : float : 5;
 
 Dot :: struct {
     width  := dot_width;
@@ -114,13 +116,13 @@ main :: () {
 
                 if it.key_code == {
                   case Input.Key_Code.ARROW_UP;
-                    dot.vy += ifx it.key_pressed then 10 else -10;
+                    dot.vy += ifx it.key_pressed then dot_speed else -dot_speed;
                   case Input.Key_Code.ARROW_DOWN;
-                    dot.vy += ifx it.key_pressed then -10 else 10;
+                    dot.vy += ifx it.key_pressed then -dot_speed else dot_speed;
                   case Input.Key_Code.ARROW_LEFT;
-                    dot.vx += ifx it.key_pressed then -10 else 10;
+                    dot.vx += ifx it.key_pressed then -dot_speed else dot_speed;
                   case Input.Key_Code.ARROW_RIGHT;
-                    dot.vx += ifx it.key_pressed then 10 else -10;
+                    dot.vx += ifx it.key_pressed then dot_speed else -dot_speed;
                 }
             }
         }
@@ -131,55 +133,52 @@ main :: () {
             return square(v1.x - v2.x) + square(v1.y - v2.y);
         }
 
-        check_collision :: (dot: Dot, wall: Wall) -> float {
-            return 0;
+        Direction :: enum {
+            X;
+            Y;
         }
 
-        check_collision :: (dot_a: Dot, dot_b: Dot) -> float {
+        check_collision :: (dot_a: Dot, dot_b: Dot, $direction: Direction) -> float {
             center_a := xy(dot_a.x + dot_a.r, dot_a.y + dot_a.r);
             center_b := xy(dot_b.x + dot_b.r, dot_b.y + dot_b.r);
 
-            ds := distance_squared(center_a, center_b);
+            distance_between_centers_squared := distance_squared(center_a, center_b);
             total_radius_squared := square(dot_a.r + dot_b.r);
-            if ds < total_radius_squared { // collision, return the bounce back distance
-                return sqrt(total_radius_squared - ds);
+            if distance_between_centers_squared < total_radius_squared { // collision, return the bounce back distance
+                #if direction == .X return sqrt(total_radius_squared - square(center_a.y - center_b.y)) - min(abs(center_a.x - center_b.x), abs(center_b.x - center_a.x));
+                #if direction == .Y return sqrt(total_radius_squared - square(center_a.x - center_b.x)) - min(abs(center_a.y - center_b.y), abs(center_b.y - center_a.y));
             }
 
             return 0;
         }
 
-        // check_collision_y :: (entity_a: Entity, entity_b: Entity) -> bool {
+        check_collision :: (dot: Dot, wall: Wall) -> bool {
+            closest_point_on_wall_to_dot: Vector2;
 
-        //     bottom_a := entity_a.y;
-        //     for collider_a: entity_a.colliders {
+            dot_center := xy(dot.x + dot.r, dot.y + dot.r);
 
-        //         left_a   := entity_a.x + (entity_a.width - collider_a.width) / 2;
-        //         right_a  := left_a + collider_a.width;
-        //         top_a    := bottom_a + collider_a.height;
+            if dot_center.x < wall.x {
+                closest_point_on_wall_to_dot.x = wall.x;
+            } else if dot_center.x > wall.x + wall.width {
+                closest_point_on_wall_to_dot.x = wall.x + wall.width;
+            } else { // center of dot is within the wall's boundaries along the x-axis
+                closest_point_on_wall_to_dot.x = dot_center.x;
+            }
 
+            if dot_center.y < wall.y {
+                closest_point_on_wall_to_dot.y = wall.y;
+            } else if dot_center.y > wall.y + wall.height {
+                closest_point_on_wall_to_dot.y = wall.y + wall.height;
+            } else { // center of dot is within the wall's boundaries along the y-axis
+                closest_point_on_wall_to_dot.y = dot_center.y;
+            }
 
-        //         bottom_b := entity_b.y;
-        //         for collider_b: entity_b.colliders {
+            if distance_squared(dot_center, closest_point_on_wall_to_dot) < square(dot.r) {
+                return true;
+            }
 
-        //             left_b   := entity_b.x + (entity_b.width - collider_b.width) / 2;
-        //             right_b  := left_b + collider_b.width;
-        //             top_b    := bottom_b + collider_b.height;
-
-        //             if !(right_a  <= left_b   ||
-        //                  left_a   >= right_b  ||
-        //                  top_a    <= bottom_b ||
-        //                  bottom_a >= top_b)
-        //             { // collision detected
-        //                 return true;
-        //             }
-
-        //             bottom_b = top_b;
-        //         }
-        //         bottom_a = top_a;
-        //     }
-
-        //     return false;
-        // }
+            return false;
+        }
 
         if dot.vx != 0 &&
            dot.x + dot.vx >= 0 &&
@@ -187,13 +186,14 @@ main :: () {
         {
             dot.x += dot.vx;
             for other_dot: other_dots {
-                bounce_back := check_collision(dot, other_dot);
+                bounce_back := check_collision(dot, other_dot, .X);
                 dot.x += ifx dot.vx > 0 then -bounce_back else bounce_back;
             }
-            // for wall: walls {
-            //     bounce_back := check_collision_x(dot, wall);
-            //     dot.x += ifx dot.vx > 0 then -bounce_back else bounce_back;
-            // }
+            for wall: walls {
+                while check_collision(dot, wall) {
+                    dot.x += ifx dot.vx > 0 then -1 else 1;
+                }
+            }
         }
 
         if dot.vy != 0 &&
@@ -202,15 +202,14 @@ main :: () {
         {
             dot.y += dot.vy;
             for other_dot: other_dots {
-                while check_collision(dot, other_dot) {
+                bounce_back := check_collision(dot, other_dot, .Y);
+                dot.y += ifx dot.vy > 0 then -bounce_back else bounce_back;
+            }
+            for wall: walls {
+                while check_collision(dot, wall) {
                     dot.y += ifx dot.vy > 0 then -1 else 1;
                 }
             }
-            // for wall: walls {
-            //     while check_collision_y(dot, wall) {
-            //         dot.y += ifx dot.vy > 0 then -1 else 1;
-            //     }
-            // }
         }
 
         draw_one_frame(dot, other_dots, walls);
