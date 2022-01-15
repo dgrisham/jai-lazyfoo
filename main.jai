@@ -8,14 +8,25 @@ Input :: #import "Input";
 
 KEY_Q :: 81;
 
-window_width  : s32 : 1200;
-window_height : s32 : 1080;
+camera_width  : int : 960;
+camera_height : int : 540;
+
+map_width  : float : 1920;
+map_height : float : 1080;
 
 window : Window_Type;
 
 frame := 0;
 frame_rate: float64;
 frames_between_rate_measurements :: 30;
+
+Camera :: struct {
+    x, y: float;
+    width  :: camera_width;
+    height :: camera_height;
+}
+
+map_texture : *Simp.Texture;
 
 dot_width   : float : 20;
 dot_height  : float : 20;
@@ -45,56 +56,28 @@ NewDot :: (x: float, y: float) -> Dot {
     return dot;
 }
 
-Wall :: struct {
-    x, y: float;
-    width, height: float;
-    thickness : float : 2;
-}
-
 main :: () {
-
-    window = create_window(window_width, window_height, "DotManVSOTHERDotMansAndWallWoMans");
-    Simp.set_render_target(window);
 
     init_font();
 
-    dot_texture = New(Simp.Texture);
-    assert(Simp.texture_load_from_file(dot_texture, "img/dot.bmp"));
-    reset_temporary_storage();
+    camera: Camera;
+    camera.x = map_width  / 2 - camera.width  / 2.0;
+    camera.y = map_height / 2 - camera.height / 2.0;
 
-    dot := NewDot(cast(float) (window_width / 2), cast(float) (window_height / 2));
+    window = create_window(camera.width, camera.height, "DotManVSOTHERDotMansAndWallWoMans");
+    Simp.set_render_target(window);
 
-    other_dots: [6] Dot;
+    {
+        dot_texture = New(Simp.Texture);
+        assert(Simp.texture_load_from_file(dot_texture, "img/dot.bmp"));
 
-    other_dots[0] = NewDot(cast(float) (window_width / 2 + 20),   cast(float) (window_height / 2));
-    other_dots[1] = NewDot(cast(float) (window_width / 2 + 30),   cast(float) (window_height / 2 - 40));
-    other_dots[2] = NewDot(cast(float) (window_width / 2 - 40),   cast(float) (window_height / 2 + 10));
-    other_dots[3] = NewDot(cast(float) (window_width / 2 - 80),   cast(float) (window_height / 2 - 30));
-    other_dots[4] = NewDot(cast(float) (window_width / 2 - 100),  cast(float) (window_height / 2 - 100));
-    other_dots[5] = NewDot(cast(float) (window_width / 2 + 1000), cast(float) (window_height / 2));
+        map_texture = New(Simp.Texture);
+        assert(Simp.texture_load_from_file(map_texture, "img/bg.png"));
 
-    walls: [3] Wall;
+        reset_temporary_storage();
+    }
 
-    walls[0] = Wall.{
-        width = cast(float) window_width / 20,
-        height = cast(float) window_height / 5,
-        x = window_width  * 7 / 12.0,
-        y = window_height * 1 / 2.0,
-    };
-
-    walls[1] = Wall.{
-        width = cast(float) window_width / 10,
-        height = cast(float) window_height / 20,
-        x = window_width  * 2 / 12.0,
-        y = window_height * 1 / 5.0,
-    };
-
-    walls[2] = Wall.{
-        width = cast(float) window_width / 50,
-        height = cast(float) window_height - 100,
-        x = window_width  * 3 / 50.0,
-        y = 50,
-    };
+    dot := NewDot(camera_width / 2.0, camera_height / 2.0);
 
     frame_rate_start := get_current_file_time();
     quit := false;
@@ -127,92 +110,24 @@ main :: () {
             }
         }
 
-        square :: inline (x: float) -> float { return x * x; }
-
-        distance_squared :: inline (v1: Vector2, v2: Vector2) -> float {
-            return square(v1.x - v2.x) + square(v1.y - v2.y);
-        }
-
-        Direction :: enum {
-            X;
-            Y;
-        }
-
-        check_collision :: (dot_a: Dot, dot_b: Dot, $direction: Direction) -> float {
-            center_a := xy(dot_a.x + dot_a.r, dot_a.y + dot_a.r);
-            center_b := xy(dot_b.x + dot_b.r, dot_b.y + dot_b.r);
-
-            distance_between_centers_squared := distance_squared(center_a, center_b);
-            total_radius_squared := square(dot_a.r + dot_b.r);
-            if distance_between_centers_squared < total_radius_squared { // collision, return the bounce back distance
-                #if direction == .X return sqrt(total_radius_squared - square(center_a.y - center_b.y)) - min(abs(center_a.x - center_b.x), abs(center_b.x - center_a.x));
-                #if direction == .Y return sqrt(total_radius_squared - square(center_a.x - center_b.x)) - min(abs(center_a.y - center_b.y), abs(center_b.y - center_a.y));
-            }
-
-            return 0;
-        }
-
-        check_collision :: (dot: Dot, wall: Wall) -> bool {
-            closest_point_on_wall_to_dot_center: Vector2;
-
-            dot_center := xy(dot.x + dot.r, dot.y + dot.r);
-
-            if dot_center.x < wall.x {
-                closest_point_on_wall_to_dot_center.x = wall.x;
-            } else if dot_center.x > wall.x + wall.width {
-                closest_point_on_wall_to_dot_center.x = wall.x + wall.width;
-            } else { // center of dot is within the wall's boundaries along the x-axis
-                closest_point_on_wall_to_dot_center.x = dot_center.x;
-            }
-
-            if dot_center.y < wall.y {
-                closest_point_on_wall_to_dot_center.y = wall.y;
-            } else if dot_center.y > wall.y + wall.height {
-                closest_point_on_wall_to_dot_center.y = wall.y + wall.height;
-            } else { // center of dot is within the wall's boundaries along the y-axis
-                closest_point_on_wall_to_dot_center.y = dot_center.y;
-            }
-
-            if distance_squared(dot_center, closest_point_on_wall_to_dot_center) < square(dot.r) {
-                return true;
-            }
-
-            return false;
-        }
-
         if dot.vx != 0 &&
            dot.x + dot.vx >= 0 &&
-           dot.x + dot.vx + dot.width <= cast(float)window_width
+           dot.x + dot.vx + dot.width <= cast(float) map_width
         {
             dot.x += dot.vx;
-            for other_dot: other_dots {
-                bounce_back := check_collision(dot, other_dot, .X);
-                dot.x += ifx dot.vx > 0 then -bounce_back else bounce_back;
-            }
-            for wall: walls {
-                while check_collision(dot, wall) {
-                    dot.x += ifx dot.vx > 0 then -1 else 1;
-                }
-            }
         }
 
         if dot.vy != 0 &&
            dot.y + dot.vy >= 0 &&
-           dot.y + dot.vy + dot.height <= cast(float)window_height
+           dot.y + dot.vy + dot.height <= cast(float) map_height
         {
             dot.y += dot.vy;
-            for other_dot: other_dots {
-                bounce_back := check_collision(dot, other_dot, .Y);
-                dot.y += ifx dot.vy > 0 then -bounce_back else bounce_back;
-            }
-            for wall: walls {
-                while check_collision(dot, wall) {
-                    dot.y += ifx dot.vy > 0 then -1 else 1;
-                }
-            }
         }
 
-        draw_one_frame(dot, other_dots, walls);
+        camera.x = min(max(0.0, dot.x + dot.width / 2.0 - camera.width  / 2.0), map_width  - camera.width);
+        camera.y = min(max(0.0, dot.y + dot.width / 2.0 - camera.height / 2.0), map_height - camera.height);
+
+        draw_one_frame(camera, dot);
         frame += 1;
 
         if frame % frames_between_rate_measurements == 0 {
@@ -223,57 +138,47 @@ main :: () {
     }
 }
 
-draw_one_frame :: (dot: Dot, other_dots: [] Dot, walls: [] Wall) {
+draw_one_frame :: (camera: Camera, dot: Dot) {
 
     Simp.clear_render_target(1,1,1,1);
+    Simp.immediate_begin();
+
+    {
+        Simp.set_shader_for_images(map_texture);
+        Simp.immediate_quad(
+            .{0                       , 0},
+            .{cast(float) camera_width, 0},
+            .{cast(float) camera_width, cast(float) camera_height},
+            .{0                       , cast(float) camera_height},
+            rgba(1,1,1,1),
+            xy(camera.x / map_width                 , camera.y / map_height),
+            xy((camera.x + camera.width) / map_width, camera.y / map_height),
+            xy((camera.x + camera.width) / map_width, (camera.y + camera.height) / map_height),
+            xy(camera.x / map_width                 , (camera.y + camera.height) / map_height),
+        );
+    }
 
     { // draw the frame rate
         time_str := tprint("% fps", formatFloat(frame_rate, 2, 3));
-        Simp.draw_text(font, 30, window_height - 50, time_str, rgba(0,0,0,1));
-    }
-
-    for other_dot: other_dots { // draw the OTHER dots
-        Simp.set_shader_for_images(*other_dot.texture);
-        Simp.immediate_begin();
-
-        Simp.immediate_quad(
-            other_dot.x, other_dot.y, other_dot.x + other_dot.width, other_dot.y + other_dot.height,
-            rgba(1,0,0,1),
-        );
-
-        Simp.immediate_flush();
+        Simp.draw_text(font, 30, camera.height - 50, time_str, rgba(0,0,0,1)); // TODO: update for camera
     }
 
     { // draw the dot
-        Simp.set_shader_for_images(*dot.texture);
-        Simp.immediate_begin();
-
+        Simp.set_shader_for_images(dot_texture);
         Simp.immediate_quad(
-            dot.x, dot.y, dot.x + dot.width, dot.y + dot.height,
-            rgba(1,1,1,0.3),
+            dot.x - camera.x, dot.y - camera.y, dot.x + dot.width - camera.x, dot.y + dot.height - camera.y,
+            rgba(1,1,1,1),
         );
-
-        Simp.immediate_flush();
     }
 
-    // draw the walls
-    for wall: walls {
-        Simp.set_shader_for_color();
-        draw_hollow_rectangle(wall.x, wall.y, wall.width, wall.height, wall.thickness, Vector4.{1,1,1,1}, Vector4.{0,0,0,1});
-    }
-
+    Simp.immediate_flush();
     Simp.swap_buffers(window);
 }
 
 font: *Simp.Dynamic_Font;
 
-draw_hollow_rectangle :: inline (x: float, y: float, width: float, height: float, thickness: float, inner_color: Vector4, outer_color: Vector4) {
-    Simp.immediate_quad(x, y, x + width, y + height, outer_color);
-    Simp.immediate_quad(x + thickness, y + thickness, x + width - thickness, y + height - thickness, inner_color);
-}
-
 init_font :: () {
-    pixel_height := window_height / 64;
+    pixel_height := camera_height / 32;
     font = Simp.get_font_at_size(".", "OpenSans-BoldItalic.ttf", pixel_height);
     assert(font != null);
 }
